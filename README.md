@@ -1,42 +1,36 @@
-# 🎙️ Oddmind.app - AI Public Speaking & Critical Thinking Trainer
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-**Oddmind** adalah aplikasi pelatihan interaktif berbasis AI dan teknologi pengenalan suara (*speech recognition*) yang dirancang untuk melatih kemampuan *public speaking* (cara berbicara) dan *critical thinking* (berpikir kritis/logis) secara bersamaan.
+## Getting Started
 
----
+First, run the development server:
 
-## ✨ Fitur Utama (Key Features)
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-- 🗣️ **Pengenalan Suara Real-time & Analisis Metrik**
-  - Transkripsi otomatis dari ucapan menggunakan Web Speech API.
-  - Deteksi **WPM (Words Per Minute / Kecepatan Bicara)** dan **Filler Words (kata-kata jeda seperti "ee...", "nggak tahu", dll.)** secara *real-time*.
-- 📊 **Sistem Evaluasi AI Multidimensi**
-  - **Critical Thinking**: Penilaian pada 5 aspek (Analisis, Evaluasi, Inferensi, Eksplanasi, Regulasi Diri).
-  - **Public Speaking**: Penilaian pada 5 aspek (Kejelasan Isi, Kefasihan & Vokal, Diksi, Intonasi & Pacing, Kepercayaan Diri).
-  - Visualisasi menggunakan *Radar Chart* (Recharts) serta umpan balik dan rekomendasi perbaikan yang spesifik.
-- 🥊 **Mode AI Sparring (Debat)**
-  - Latihan intensif selama 60 detik untuk merespons dan menyanggah argumen kontra dari AI secara logis.
-- 📚 **Database 100 Topik Soal**
-  - Mencakup berbagai kategori (Pendidikan, Sosial, Teknologi, Lingkungan, Ekonomi, Politik, Etika) dari tingkat *Pemula* hingga *Pakar*.
-- 🎮 **Elemen Gamifikasi**
-  - Perolehan XP (Experience Points), sistem *Level-up*, dan pelacakan latihan harian (*Streak*).
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
----
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## 🛠️ Teknologi yang Penggunaan (Tech Stack)
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-- **Framework**: Next.js / React
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Charts**: Recharts
-- **API**: Web Speech API (`SpeechRecognition`)
+## Learn More
 
----
+To learn more about Next.js, take a look at the following resources:
 
-## 🚀 Cara Menjalankan di Lokal (Getting Started)
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### Langkah-langkah:
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-1. **Clone Repositori**
-   ```bash
-   git clone [https://github.com/nakam0nster/Oddmind.app.git](https://github.com/nakam0nster/Oddmind.app.git)
-   cd Oddmind.app
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
