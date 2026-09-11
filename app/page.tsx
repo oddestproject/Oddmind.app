@@ -1144,28 +1144,29 @@ export default function PublicSpeakingApp() {
           </div>
         )}
 
-        {/* TAB 4: VIDEO LEARNING HUB */}
-        {activeTab === "video" && (
-          <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Video className="w-5 h-5 text-rose-500" /> Video Learning Hub
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { title: "Cara Menyampaikan Pendapat Jelas & Terstruktur", url: "https://www.youtube.com/embed/g2qJpC-H64c" },
-                { title: "Membangun Argumentasi Logis dan Bebas Bias", url: "https://www.youtube.com/embed/dItUGF8XHy8" },
-                { title: "Teknik Storytelling & Contoh Konkret", url: "https://www.youtube.com/embed/Unzc731iCUY" }
-              ].map((v, i) => (
-                <div key={i} className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
-                  <h4 className="font-bold text-slate-800 text-sm">{v.title}</h4>
-                  <button onClick={() => setVideoUrl(v.url)} className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2">
-                    <Play className="w-4 h-4" /> Tonton Video
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {/* TAB 4: VIDEO LEARNING HUB */}
+{activeTab === "video" && (
+  <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
+    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+      <Video className="w-5 h-5 text-rose-500" /> Video Learning Hub
+    </h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {[
+        { title: "How To Become A Confident Public Speaker", url: "https://www.youtube.com/embed/z3b10kV8F5U" },
+        { title: "Critical Thinking Skills: The Superpower", url: "https://www.youtube.com/embed/t57zsDTpAzY" },
+        { title: "How To Be Confident (Easy Steps)", url: "https://www.youtube.com/embed/iB4abdi5lBg" },
+        { title: "How To Think Fast On Your Feet (Impromptu Speaking)", url: "https://www.youtube.com/embed/wyvaEIMMG3U" }
+      ].map((v, i) => (
+        <div key={i} className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
+          <h4 className="font-bold text-slate-800 text-sm">{v.title}</h4>
+          <button onClick={() => setVideoUrl(v.url)} className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2">
+            <Play className="w-4 h-4" /> Tonton Video
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)} 
 
       </div>
 
