@@ -168,7 +168,7 @@ const topicDatabase = [
 ];
 
 export default function PublicSpeakingApp() {
-  const [activeTab, setActiveTab] = useState<"latihan" | "rapor" | "riwayat" | "video">("latihan");
+  const [activeTab, setActiveTab] = useState<"latihan" | "rapor" | "riwayat" | "video" | "leaderboard">("latihan");
   const [currentTopic, setCurrentTopic] = useState(topicDatabase[0]);
   const [filterLevel, setFilterLevel] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -184,7 +184,32 @@ export default function PublicSpeakingApp() {
   const [history, setHistory] = useState<any[]>([]);
   const [streak, setStreak] = useState(1);
   const [lastPracticeDate, setLastPracticeDate] = useState<string | null>(null);
+// --- State & Data untuk Akun & Leaderboard ---
+  const [userAccount, setUserAccount] = useState({
+    name: "Pengguna Baru",
+    isPublic: true,
+    totalPractices: 6,
+    streak: 3,
+    avgOverallScore: 84,
+    avgCtScore: 4.1,
+    avgPsScore: 4.2
+  });
 
+  const [leaderboardTab, setLeaderboardTab] = useState("overall");
+
+  const mockLeaderboard = {
+    overall: [
+      { rank: 1, name: "Aisyah", score: 92, practices: 47, streak: 12 },
+      { rank: 2, name: "Raka", score: 89, practices: 51, streak: 15 },
+      { rank: 3, name: "Naya", score: 87, practices: 38, streak: 8 },
+      { rank: 4, name: "Ayu", score: 82, practices: 31, streak: 5 },
+    ],
+    consistent: [
+      { rank: 1, name: "Raka", score: "15 Hari Streak", practices: 51, streak: 15 },
+      { rank: 2, name: "Aisyah", score: "12 Hari Streak", practices: 47, streak: 12 },
+      { rank: 3, name: "Naya", score: "8 Hari Streak", practices: 38, streak: 8 },
+    ]
+  };
   // GAMIFIKASI: XP & LEVEL & BADGES & QUESTS
   const [userXp, setUserXp] = useState(120);
   const [targetScore, setTargetScore] = useState(80);
