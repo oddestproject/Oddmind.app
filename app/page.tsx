@@ -1227,7 +1227,91 @@ export default function PublicSpeakingApp() {
           </div>
         </div>
       )}
+{/* TAB: LEADERBOARD & AKUN */}
+{activeTab === "leaderboard" && (
+  <div className="bg-white/90 rounded-2xl p-6 shadow-sm space-y-6">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+      <div>
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          🏆 Leaderboard & Profil Konsistensi
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Peringkat didasarkan pada skor rata-rata dan konsistensi latihan (Minimum 5 latihan).
+        </p>
+      </div>
 
+      {/* Pengaturan Akun & Privasi Sederhana */}
+      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+        <div>
+          <input 
+            type="text" 
+            value={userAccount.name} 
+            onChange={(e) => setUserAccount({...userAccount, name: e.target.value})}
+            className="text-xs font-bold bg-white px-2 py-1 rounded border border-slate-300 w-28"
+            placeholder="Nama Anda"
+          />
+        </div>
+        <button 
+          onClick={() => setUserAccount({...userAccount, isPublic: !userAccount.isPublic})}
+          className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${
+            userAccount.isPublic ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
+          }`}
+        >
+          {userAccount.isPublic ? "🌎 Public Account" : "🔒 Private Account"}
+        </button>
+      </div>
+    </div>
+
+    {/* Kategori Leaderboard */}
+    <div className="flex gap-2 overflow-x-auto pb-2">
+      {["overall", "critical_thinking", "public_speaking", "consistent", "active"].map((cat) => (
+        <button
+          key={cat}
+          onClick={() => setLeaderboardTab(cat)}
+          className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+            leaderboardTab === cat ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {cat.replace('_', ' ')}
+        </button>
+      ))}
+    </div>
+
+    {/* Tabel Leaderboard */}
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b text-xs text-slate-400 font-semibold">
+            <th className="py-3 px-4">Rank</th>
+            <th className="py-3 px-4">Nama</th>
+            <th className="py-3 px-4">Skor Rata-Rata</th>
+            <th className="py-3 px-4">Total Latihan</th>
+            <th className="py-3 px-4">Streak</th>
+          </tr>
+        </thead>
+        <tbody className="text-sm text-slate-700">
+          {mockLeaderboard.overall.map((row) => (
+            <tr key={row.rank} className="border-b hover:bg-slate-50/80 transition-colors">
+              <td className="py-3 px-4 font-bold">
+                {row.rank === 1 ? "🥇 1" : row.rank === 2 ? "🥈 2" : row.rank === 3 ? "🥉 3" : row.rank}
+              </td>
+              <td className="py-3 px-4 font-semibold text-slate-800">{row.name}</td>
+              <td className="py-3 px-4 font-bold text-rose-600">{row.score}</td>
+              <td className="py-3 px-4">{row.practices} sesi</td>
+              <td className="py-3 px-4 text-orange-500 font-medium">🔥 {row.streak} hari</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {!userAccount.isPublic && (
+      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
+        🔒 Akun Anda berstatus <b>Private</b>. Statistik dan nama Anda disembunyikan dari leaderboard publik, namun progress latihan tetap tersimpan aman di perangkat Anda.
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 }
