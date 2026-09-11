@@ -167,42 +167,11 @@ export default function PublicSpeakingApp() {
   const [streak, setStreak] = useState(1);
   const [lastPracticeDate, setLastPracticeDate] = useState<string | null>(null);
 
-  // --- Akun & Leaderboard ---
-  const [userAccount, setUserAccount] = useState({
-    name: "Pengguna Setia",
-    email: "user@example.com",
-    isPublic: true,
-    totalPractices: 6,
-    streak: 3,
-    avgOverallScore: 84,
-  });
-
-  const [leaderboardTab, setLeaderboardTab] = useState("overall");
-  const mockLeaderboard = {
-    overall: [
-      { rank: 1, name: "Aisyah", score: 92, practices: 47, streak: 12 },
-      { rank: 2, name: "Raka", score: 89, practices: 51, streak: 15 },
-      { rank: 3, name: "Naya", score: 87, practices: 38, streak: 8 },
-      { rank: 4, name: "Ayu", score: 82, practices: 31, streak: 5 },
-      { rank: 5, name: userAccount.name + " (Anda)", score: 85, practices: 6, streak: 3 },
-    ],
-    consistent: [
-      { rank: 1, name: "Raka", score: "15 Hari Streak", practices: 51, streak: 15 },
-      { rank: 2, name: "Aisyah", score: "12 Hari Streak", practices: 47, streak: 12 },
-      { rank: 3, name: "Naya", score: "8 Hari Streak", practices: 38, streak: 8 },
-    ]
-  };
-
   const [userXp, setUserXp] = useState(120);
   const [targetScore, setTargetScore] = useState(80);
   const [isSparringMode, setIsSparringMode] = useState(false);
   const [sparringOpini, setSparringOpini] = useState("");
 
-  // Comparison / Audio Playback State
-  const [compareId1, setCompareId1] = useState<number | null>(null);
-  const [compareId2, setCompareId2] = useState<number | null>(null);
-
-  // Live Metrics
   const [liveFillers, setLiveFillers] = useState(0);
   const [livePaceStatus, setLivePaceStatus] = useState<"Ideal" | "Terlalu Cepat" | "Terlalu Lambat">("Ideal");
   const [liveWpm, setLiveWpm] = useState(0);
@@ -226,16 +195,8 @@ export default function PublicSpeakingApp() {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        if (parsed.history) {
-          setHistory(parsed.history);
-          if (parsed.history.length >= 2) {
-            setCompareId1(parsed.history[parsed.history.length - 1].id);
-            setCompareId2(parsed.history[0].id);
-          } else if (parsed.history.length === 1) {
-            setCompareId1(parsed.history[0].id);
-            setCompareId2(parsed.history[0].id);
-          }
-        }
+        if (parsed.history) setHistory(parsed.history);
+        if (parsed.streak) setStreak(parsed.streak);
         if (parsed.lastPracticeDate) setLastPracticeDate(parsed.lastPracticeDate);
         if (parsed.userXp) setUserXp(parsed.userXp);
         if (parsed.targetScore) setTargetScore(parsed.targetScore);
@@ -327,7 +288,6 @@ export default function PublicSpeakingApp() {
       try { recognitionRef.current.start(); } catch (e) {}
     }
 
-    const totalSeconds = isSparringMode ? 60 : 120;
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -369,7 +329,6 @@ export default function PublicSpeakingApp() {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
-
     evaluateTranscript(transcript);
   };
 
@@ -458,27 +417,14 @@ export default function PublicSpeakingApp() {
       psScores: ps,
       transcript: rawText || "(Tidak ada ucapan terdeteksi)",
       wpm: finalWpm,
-      fillers: fillerCount,
-      audioUrl: "" // 音声ファイルURLがある場合はここにセット
+      fillers: fillerCount
     };
 
     const newHistory = [newHistoryItem, ...history];
     setHistory(newHistory);
-
-    if (newHistory.length === 1) {
-      setCompareId1(newHistoryItem.id);
-      setCompareId2(newHistoryItem.id);
-    } else if (newHistory.length >= 2 && !compareId2) {
-      setCompareId2(newHistoryItem.id);
-    }
-
     saveToStorage(newHistory, newStreak, today, newXpTotal);
   };
 
-  const session1 = history.find(s => s.id === Number(compareId1));
-  const session2 = history.find(s => s.id === Number(compareId2));
-
-  // グラフ用データ
   const trendData = history.slice(0, 7).reverse().map((item, i) => ({
     name: `Sesi ${i + 1}`,
     Skor: item.overall,
@@ -495,252 +441,196 @@ export default function PublicSpeakingApp() {
   const currentLevelNum = Math.floor(userXp / 200) + 1;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* ==================== ナビゲーションタブ ==================== */}
-        <div className="flex flex-wrap gap-2 bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+        {/* HEADER / NAV TABS */}
+        <div className="flex flex-wrap gap-2 bg-slate-900 p-2 rounded-2xl border border-slate-800">
           <button 
             onClick={() => setActiveTab("latihan")}
-            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "latihan" ? "bg-indigo-600 text-white" : "hover:bg-slate-100 text-slate-600"}`}
+            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "latihan" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-400"}`}
           >
-            <Mic size={16} /> Latihan & Before/After
+            <Mic size={16} /> Latihan
           </button>
           <button 
             onClick={() => setActiveTab("rapor")}
-            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "rapor" ? "bg-indigo-600 text-white" : "hover:bg-slate-100 text-slate-600"}`}
+            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "rapor" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-400"}`}
           >
             <BarChart2 size={16} /> Rapor & Statistik
           </button>
           <button 
-            onClick={() => setActiveTab("leaderboard")}
-            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "leaderboard" ? "bg-indigo-600 text-white" : "hover:bg-slate-100 text-slate-600"}`}
+            onClick={() => setActiveTab("riwayat")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "riwayat" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-400"}`}
           >
-            <Award size={16} /> Peringkat (Leaderboard)
+            <Calendar size={16} /> Riwayat Sesi
+          </button>
+          <button 
+            onClick={() => setActiveTab("video")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "video" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-400"}`}
+          >
+            <Video size={16} /> Video Hub
+          </button>
+          <button 
+            onClick={() => setActiveTab("leaderboard")}
+            className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${activeTab === "leaderboard" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-400"}`}
+          >
+            <Award size={16} /> Peringkat
           </button>
         </div>
 
-        {/* ==================== 1. LATIHAN & BEFORE/AFTER TAB ==================== */}
+        {/* ==================== 1. LATIHAN TAB ==================== */}
         {activeTab === "latihan" && (
           <div className="space-y-6">
-            
-            {/* 練習カードセクション */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full">
-                  {currentTopic.level} • {currentTopic.category}
-                </span>
-                <button onClick={getNewCard} className="text-sm text-indigo-600 font-semibold hover:underline">
-                  Acak Soal Lain 🔄
-                </button>
+            <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+              <div className="flex flex-wrap justify-between items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold border border-indigo-500/30">
+                    {currentTopic.level} • {currentTopic.category}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">ID: {currentTopic.id}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleSparringMode}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition ${
+                      isSparringMode ? "bg-rose-600/20 text-rose-400 border-rose-500/50" : "bg-slate-800 text-slate-300 border-slate-700"
+                    }`}
+                  >
+                    <Swords size={14} /> AI Sparring {isSparringMode ? "ON" : "OFF"}
+                  </button>
+                  <button
+                    onClick={getNewCard}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  >
+                    Soal Lain 🔄
+                  </button>
+                </div>
               </div>
 
-              <h2 className="text-xl font-extrabold text-slate-900">{currentTopic.title}</h2>
-              <p className="text-slate-600 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <h2 className="text-2xl font-black text-white">{currentTopic.title}</h2>
+              <p className="text-slate-300 text-base bg-slate-950 p-4 rounded-2xl border border-slate-800/80 leading-relaxed">
                 &quot;{currentTopic.question}&quot;
               </p>
 
-              {/* 録音コントロール */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="text-sm font-semibold text-slate-500 flex items-center gap-2">
-                  <Clock size={16} /> Waktu tersisa: <span className="text-indigo-600 font-bold">{timeLeft}s</span>
+              {isSparringMode && (
+                <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-900/40 text-rose-200 text-sm space-y-1">
+                  <p className="font-bold flex items-center gap-1 text-rose-400"><Swords size={14} /> Opini AI Lawan Debat:</p>
+                  <p className="italic">{sparringOpini}</p>
+                </div>
+              )}
+
+              {/* 録音ボタンとタイマー */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
+                <div className="flex items-center gap-4 text-sm text-slate-400">
+                  <span className="flex items-center gap-1"><Clock size={16} /> Sisa: <strong className="text-white">{timeLeft}s</strong></span>
+                  <span className="flex items-center gap-1"><Activity size={16} /> WPM: <strong className="text-indigo-400">{liveWpm}</strong></span>
+                  <span className="flex items-center gap-1"><ShieldAlert size={16} /> Filler: <strong className="text-amber-400">{liveFillers}</strong></span>
                 </div>
                 <button
                   onClick={toggleRecording}
-                  className={`px-6 py-3 rounded-2xl font-bold text-white flex items-center gap-2 shadow-lg transition ${
-                    isRecording ? "bg-rose-500 hover:bg-rose-600 animate-pulse" : "bg-indigo-600 hover:bg-indigo-700"
+                  className={`px-8 py-3.5 rounded-2xl font-bold text-white flex items-center gap-2 shadow-lg transition ${
+                    isRecording ? "bg-rose-600 hover:bg-rose-500 animate-pulse" : "bg-indigo-600 hover:bg-indigo-500"
                   }`}
                 >
-                  <Mic size={18} /> {isRecording ? "Berhenti Merekam" : "Mulai Bicara"}
+                  <Mic size={18} /> {isRecording ? "Berhenti & Evaluasi" : "Mulai Merekam"}
                 </button>
               </div>
 
               {transcript && (
-                <div className="mt-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 text-sm">
-                  <p className="font-bold text-indigo-900 mb-1">Transkrip Realtime:</p>
-                  <p className="italic text-slate-700">&quot;{transcript}&quot;</p>
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-sm space-y-1">
+                  <p className="font-bold text-slate-400">Transkrip Realtime:</p>
+                  <p className="text-slate-200 italic">&quot;{transcript}&quot;</p>
                 </div>
               )}
             </div>
 
-            {/* AI評価結果・レーダーチャート */}
+            {/* AI評価結果 & レーダーチャート */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Sparkles size={18} className="text-indigo-600" /> Hasil Evaluasi Sesi Terakhir
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Sparkles size={18} className="text-indigo-400" /> Hasil Evaluasi AI Terakhir
                 </h3>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center">
-                    <span className="text-xs text-indigo-600 font-bold">Skor</span>
-                    <span className="text-xl font-extrabold text-slate-900">{evaluation.overall}</span>
+                  <div className="w-20 h-20 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center">
+                    <span className="text-xs text-slate-400">Skor</span>
+                    <span className="text-2xl font-black text-indigo-400">{evaluation.overall}</span>
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-600">{evaluation.goodText}</p>
-                    <p className="text-xs text-rose-600 mt-1">Perbaikan: {evaluation.improveText}</p>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-slate-300">{evaluation.goodText}</p>
+                    <p className="text-rose-400 text-xs">Perbaikan: {evaluation.improveText}</p>
                   </div>
                 </div>
               </div>
 
-              {/* レーダーチャート */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
-                <h3 className="font-bold text-slate-800 text-sm mb-2">Analisis Kemampuan Berpikir Kritis</h3>
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col items-center justify-center">
+                <h3 className="font-bold text-white text-sm mb-2">Analisis Berpikir Kritis</h3>
                 <div className="w-full h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar name="Skor" dataKey="A" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.4} />
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#334155" />
+                      <Radar name="Skor" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </div>
-
-            {/* ==================== ビフォーアフター & 過去音声聴き比べセクション ==================== */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Feature Before vs After (Side-by-Side Comparison)</h3>
-                <p className="text-xs text-slate-500">Pilih 2 rekaman untuk membandingkan perkembangan gaya bicara dan skor kamu!</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Pilih Rekaman Awal (Before)</label>
-                  <select
-                    value={compareId1 || ""}
-                    onChange={(e) => setCompareId1(Number(e.target.value))}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-white"
-                  >
-                    {history.map((item) => (
-                      <option key={`b-${item.id}`} value={item.id}>
-                        {item.date} - {item.title} (Skor: {item.overall})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Pilih Rekaman Terbaru (After)</label>
-                  <select
-                    value={compareId2 || ""}
-                    onChange={(e) => setCompareId2(Number(e.target.value))}
-                    className="w-full p-2.5 border rounded-xl text-sm bg-white"
-                  >
-                    {history.map((item) => (
-                      <option key={`a-${item.id}`} value={item.id}>
-                        {item.date} - {item.title} (Skor: {item.overall})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 比較カード */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* BEFORE */}
-                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase">SESI BEFORE</span>
-                  <h4 className="font-bold text-slate-800">{session1 ? session1.title : "Belum ada data"}</h4>
-                  <div className="text-3xl font-extrabold text-indigo-600">
-                    {session1 ? session1.overall : "--"} <span className="text-sm font-normal text-slate-400">/ 100</span>
-                  </div>
-                  <p className="text-sm italic text-slate-600">&quot;{session1 ? session1.transcript : "Tidak ada ucapan terdeteksi"}&quot;</p>
-                  
-                  <div className="pt-2 border-t border-slate-200">
-                    <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Volume2 size={14} /> Putar Rekaman Asli:</p>
-                    {session1?.audioUrl ? (
-                      <audio controls src={session1.audioUrl} className="w-full h-8" />
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">File audio simulasi (teks terekam)</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* AFTER */}
-                <div className="p-5 rounded-2xl border-2 border-emerald-400 bg-emerald-50/20 space-y-3">
-                  <span className="text-xs font-bold text-emerald-600 uppercase">SESI AFTER</span>
-                  <h4 className="font-bold text-slate-800">{session2 ? session2.title : "Belum ada data"}</h4>
-                  <div className="text-3xl font-extrabold text-indigo-600">
-                    {session2 ? session2.overall : "--"} <span className="text-sm font-normal text-slate-400">/ 100</span>
-                  </div>
-                  <p className="text-sm italic text-slate-600">&quot;{session2 ? session2.transcript : "Tidak ada ucapan terdeteksi"}&quot;</p>
-                  
-                  <div className="pt-2 border-t border-emerald-200">
-                    <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Volume2 size={14} /> Putar Rekaman Asli:</p>
-                    {session2?.audioUrl ? (
-                      <audio controls src={session2.audioUrl} className="w-full h-8" />
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">File audio simulasi (teks terekam)</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
           </div>
         )}
 
-        {/* ==================== 2. LEADERBOARD TAB (ランキング反映) ==================== */}
-        {activeTab === "leaderboard" && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">🏆 Peringkat Komunitas (Leaderboard)</h2>
-                <p className="text-xs text-slate-500">Lihat posisi skor public speaking kamu dibandingkan pengguna lain.</p>
+        {/* ==================== 2. RAPOR TAB ==================== */}
+        {activeTab === "rapor" && (
+          <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-6">
+            <h2 className="text-xl font-bold text-white">📊 Rapor & Statistik Latihan</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                <span className="text-xs text-slate-400">Total Sesi</span>
+                <p className="text-2xl font-black text-white mt-1">{history.length}</p>
               </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setLeaderboardTab("overall")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold ${leaderboardTab === "overall" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                >
-                  Skor Tertinggi
-                </button>
-                <button 
-                  onClick={() => setLeaderboardTab("consistent")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold ${leaderboardTab === "consistent" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                >
-                  Streak Terpanjang
-                </button>
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                <span className="text-xs text-slate-400">Streak Aktif</span>
+                <p className="text-2xl font-black text-amber-400 mt-1">{streak} Hari</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                <span className="text-xs text-slate-400">Total XP</span>
+                <p className="text-2xl font-black text-indigo-400 mt-1">{userXp} XP</p>
               </div>
             </div>
 
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 h-64">
+              <h4 className="text-xs font-bold text-slate-400 mb-2">Tren Skor Latihan</h4>
+              <ResponsiveContainer width="100%" height="85%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} stroke="#64748b" />
+                  <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
+                  <Line type="monotone" dataKey="Skor" stroke="#6366f1" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== 3. RIWAYAT TAB ==================== */}
+        {activeTab === "riwayat" && (
+          <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
+            <h2 className="text-xl font-bold text-white">📅 Riwayat Sesi Latihan</h2>
             <div className="space-y-3">
-              {leaderboardTab === "overall" ? (
-                mockLeaderboard.overall.map((user) => (
-                  <div key={user.rank} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-4">
-                      <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                        user.rank === 1 ? "bg-amber-400 text-white" :
-                        user.rank === 2 ? "bg-slate-300 text-white" :
-                        user.rank === 3 ? "bg-amber-700 text-white" : "bg-slate-200 text-slate-600"
-                      }`}>
-                        {user.rank}
-                      </span>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{user.name}</h4>
-                        <span className="text-xs text-slate-400">Total latihan: {user.practices} sesi</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-extrabold text-indigo-600 text-base">{user.score} pts</span>
-                    </div>
-                  </div>
-                ))
+              {history.length === 0 ? (
+                <p className="text-slate-500 text-sm">Belum ada riwayat latihan. Mulai latihan pertamamu sekarang!</p>
               ) : (
-                mockLeaderboard.consistent.map((user) => (
-                  <div key={user.rank} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-4">
-                      <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                        {user.rank}
-                      </span>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{user.name}</h4>
-                        <span className="text-xs text-slate-400">Streak aktif</span>
-                      </div>
+                history.map((item) => (
+                  <div key={item.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+                    <div>
+                      <span className="text-xs text-indigo-400 font-bold">{item.date} • {item.level}</span>
+                      <h4 className="font-bold text-white text-base">{item.title}</h4>
+                      <p className="text-xs text-slate-400 italic mt-1">&quot;{item.transcript}&quot;</p>
                     </div>
                     <div className="text-right">
-                      <span className="font-bold text-emerald-600 text-sm">{user.score}</span>
+                      <span className="text-lg font-black text-indigo-400">{item.overall}</span>
+                      <span className="text-xs text-slate-500 block">Skor</span>
                     </div>
                   </div>
                 ))
@@ -749,51 +639,47 @@ export default function PublicSpeakingApp() {
           </div>
         )}
 
-        {/* ==================== 3. RAPOR & STATISTIK TAB (アカウント情報反映) ==================== */}
-        {activeTab === "rapor" && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">📊 Rapor & Akun Saya</h2>
-                <p className="text-xs text-slate-500">Ringkasan profil dan rekam jejak latihan Anda.</p>
+        {/* ==================== 4. VIDEO HUB TAB ==================== */}
+        {activeTab === "video" && (
+          <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
+            <h2 className="text-xl font-bold text-white">🎥 Video Hub & Referensi</h2>
+            <p className="text-slate-400 text-sm">Tonton video panduan untuk meningkatkan teknik public speaking dan critical thinking kamu.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="h-32 bg-slate-800 rounded-xl flex items-center justify-center text-slate-500">Video Thumbnail</div>
+                <h4 className="font-bold text-white text-sm">Teknik Artikulasi & Intonasi Suara</h4>
+                <p className="text-xs text-slate-400">Pelajari bagaimana mengatur kecepatan bicara agar tidak terlalu cepat.</p>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-slate-800">{userAccount.name}</p>
-                <p className="text-xs text-slate-500">{userAccount.email}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 text-center">
-                <span className="text-xs text-indigo-600 font-semibold">Total Sesi Latihan</span>
-                <p className="text-2xl font-extrabold text-slate-800 mt-1">{history.length + userAccount.totalPractices}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 text-center">
-                <span className="text-xs text-emerald-600 font-semibold">Rata-rata Skor</span>
-                <p className="text-2xl font-extrabold text-slate-800 mt-1">
-                  {history.length > 0 
-                    ? Math.round(history.reduce((acc, curr) => acc + curr.overall, 0) / history.length) 
-                    : userAccount.avgOverallScore}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100 text-center">
-                <span className="text-xs text-amber-600 font-semibold">Streak Hari Ini</span>
-                <p className="text-2xl font-extrabold text-slate-800 mt-1">{streak} Hari</p>
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="h-32 bg-slate-800 rounded-xl flex items-center justify-center text-slate-500">Video Thumbnail</div>
+                <h4 className="font-bold text-white text-sm">Struktur Berpikir Kritis dalam Argumen</h4>
+                <p className="text-xs text-slate-400">Cara menyusun alasan logis dan bukti pendukung dalam debat.</p>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* トレンドグラフ */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-64">
-              <h4 className="text-xs font-bold text-slate-600 mb-2">Tren Perkembangan Skor Latihan</h4>
-              <ResponsiveContainer width="100%" height="85%">
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="Skor" stroke="#4f46e5" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+        {/* ==================== 5. LEADERBOARD TAB ==================== */}
+        {activeTab === "leaderboard" && (
+          <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
+            <h2 className="text-xl font-bold text-white">🏆 Peringkat Pengguna</h2>
+            <div className="space-y-3">
+              {[
+                { rank: 1, name: "Aisyah", score: 92 },
+                { rank: 2, name: "Raka", score: 89 },
+                { rank: 3, name: "Naya", score: 87 },
+                { rank: 4, name: "Anda (Pengguna)", score: userXp ? Math.round(userXp / 10) : 75 },
+              ].map((user) => (
+                <div key={user.rank} className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-slate-800 text-slate-200 flex items-center justify-center font-bold text-sm">
+                      {user.rank}
+                    </span>
+                    <span className="font-bold text-white">{user.name}</span>
+                  </div>
+                  <span className="font-black text-indigo-400">{user.score} pts</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
