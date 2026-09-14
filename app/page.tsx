@@ -3,12 +3,11 @@
 import React, { useState } from "react";
 import { 
   BookOpen, BarChart2, Award, Video, Flame, Swords, 
-  Layers, Lightbulb, Mic, Square, Sparkles, Trophy, User, Globe, Lock, X, ExternalLink, CheckCircle2, AlertTriangle, GitCompare
+  Layers, Lightbulb, Mic, Square, Sparkles, Trophy, User, ExternalLink, AlertTriangle, GitCompare, CheckCircle2, XCircle
 } from "lucide-react";
 
-// --- DATABASE 100 TOPIK (PEMULA, MENENGAH, MAHIR, PAKAR) ---
+// --- DATABASE 100 TOPIK ---
 const topicDatabase = [
-  // Pemula
   { id: "Q001", level: "Pemula", category: "Education", title: "Guru Inspiratif", question: "Siapa guru yang paling berkesan bagimu dan apa pelajaran berharga yang kamu dapatkan?" },
   { id: "Q002", level: "Pemula", category: "Education", title: "Mata Pelajaran Favorit", question: "Apa pelajaran yang paling kamu sukai di sekolah dan mengapa?" },
   { id: "Q003", level: "Pemula", category: "Education", title: "PR Sekolah", question: "Apakah Pekerjaan Rumah (PR) efektif membantu siswa belajar?" },
@@ -35,7 +34,6 @@ const topicDatabase = [
   { id: "Q024", level: "Pemula", category: "Daily", title: "Hobi", question: "Mengapa memiliki hobi penting bagi seorang pelajar?" },
   { id: "Q025", level: "Pemula", category: "Daily", title: "Hari Tanpa HP", question: "Apa yang akan kamu lakukan jika harus menjalani satu hari tanpa HP?" },
 
-  // Menengah
   { id: "Q026", level: "Menengah", category: "Education", title: "Tekanan Akademik", question: "Apakah tekanan untuk mendapatkan nilai tinggi dapat meningkatkan motivasi belajar siswa?" },
   { id: "Q027", level: "Menengah", category: "Education", title: "Pendidikan Karakter", question: "Mana yang lebih penting di sekolah, prestasi akademik atau pendidikan karakter?" },
   { id: "Q028", level: "Menengah", category: "Education", title: "Kurikulum Fleksibel", question: "Haruskah siswa diberi lebih banyak kebebasan dalam memilih mata pelajaran?" },
@@ -67,7 +65,6 @@ const topicDatabase = [
   { id: "Q054", level: "Menengah", category: "Environment", title: "Kota Hijau", question: "Haruskah pemerintah lebih banyak mengubah lahan perkotaan menjadi ruang hijau?" },
   { id: "Q055", level: "Menengah", category: "Environment", title: "Konsumsi Berlebihan", question: "Apakah masyarakat modern terlalu banyak membeli barang yang sebenarnya tidak dibutuhkan?" },
 
-  // Mahir
   { id: "Q056", level: "Mahir", category: "Education", title: "Meritokrasi", question: "Apakah sistem pendidikan benar-benar memberikan kesempatan yang sama kepada semua siswa?" },
   { id: "Q057", level: "Mahir", category: "Education", title: "Makna Kesuksesan", question: "Jika nilai akademik bukan satu-satunya ukuran kemampuan, bagaimana seharusnya sekolah menilai kesuksesan siswa?" },
   { id: "Q058", level: "Mahir", category: "Education", title: "Pendidikan Masa Depan", question: "Keterampilan apa yang paling penting untuk dipersiapkan sekolah menghadapi masa depan?" },
@@ -94,7 +91,6 @@ const topicDatabase = [
   { id: "Q079", level: "Mahir", category: "Economy", title: "Uang dan Kesuksesan", question: "Apakah pendapatan tinggi merupakan indikator keberhasilan seseorang?" },
   { id: "Q080", level: "Mahir", category: "Economy", title: "Pekerjaan Masa Depan", question: "Apakah generasi muda perlu mengejar pekerjaan yang stabil atau pekerjaan yang sesuai passion?" },
 
-  // Pakar
   { id: "Q081", level: "Pakar", category: "Politics", title: "Demokrasi", question: "Apakah demokrasi selalu menjadi sistem pemerintahan terbaik untuk setiap negara?" },
   { id: "Q082", level: "Pakar", category: "Politics", title: "Kebebasan Pers", question: "Sejauh mana kebebasan pers dapat dibatasi demi menjaga stabilitas negara?" },
   { id: "Q083", level: "Pakar", category: "Politics", title: "Populisme", question: "Mengapa politik populisme dapat memperoleh dukungan besar dari masyarakat?" },
@@ -117,71 +113,57 @@ const topicDatabase = [
   { id: "Q100", level: "Pakar", category: "Global", title: "Masa Depan Dunia", question: "Menurutmu, apa tantangan terbesar yang akan dihadapi generasi muda di masa depan?" }
 ];
 
-// Data Dummy Riwayat untuk Perbandingan
 const initialHistory = [
   {
     id: "H1",
     title: "AI di Sekolah (Q031)",
-    date: "12 Mar 2026",
-    transcript: "menurut analisis saya isu ini sangat kompleks karena melibatkan aspek etika dan juga efisiensi sistem yang berjalan saat ini tanpa memikirkan dampak jangka panjang.",
-    publicScores: {
-      kejelasanArtikulasi: { score: 4, citation: "detik 0:03 - artikulasi 'isu ini sangat kompleks' cukup jelas." },
-      intonasiTekanan: { score: 3, citation: "detik 0:12 - intonasi cenderung datar." },
-      kecepatanTempo: { score: 4, citation: "detik 0:18 - tempo stabil." },
-      kontakMataGestur: { score: 3, citation: "detik 0:25 - gestur minimal." },
-      kepercayaanDiri: { score: 4, citation: "detik 0:30 - minim keraguan." }
-    },
-    criticalScores: {
-      analisisPremis: { score: 4, citation: "detik 0:05 - mengidentifikasi isu utama etika." },
-      evaluasiBukti: { score: 3, citation: "detik 0:15 - kurang data empiris konkret." },
-      inferensiLogika: { score: 4, citation: "detik 0:22 - penarikan kesimpulan runut." },
-      strukturArgumen: { score: 3, citation: "detik 0:28 - alur argumen agak berulang." },
-      rebuttalSanggahan: { score: 3, citation: "detik 0:35 - sanggahan argumen lawan kurang tajam." }
-    },
-    totalScore: 71
+    date: "14 Sep 2026",
+    transcript: "euh... iya menurut saya itu bagus.",
+    publicScores: { kejelasanIsi: 1, kefasihanVokal: 1, diksi: 1, intonasiPacing: 1, kepercayaanDiri: 1 },
+    criticalScores: { analisis: 1, evaluasi: 1, inferensi: 1, eksplanasi: 1, regulasiDiri: 1 },
+    totalScore: 20,
+    wpm: 30,
+    fillers: ["euh"],
+    aiReason: "Peserta hanya menyebutkan satu kata awal tanpa pengembangan argumen yang memadai.",
+    feedback: "Tingkatkan durasi berbicara dan jelaskan alasan di balik pendapat Anda.",
+    toPractice: "Latihan menyusun argumen 3 bagian (Premis, Alasan, Kesimpulan).",
+    goodPoints: null,
+    badPoints: "Terlalu sedikit kata yang diucapkan dan banyak jeda filler."
   },
   {
     id: "H2",
     title: "Guru Inspiratif (Q001)",
-    date: "14 Mar 2026",
-    transcript: "guru paling berkesan bagi saya adalah guru matematika saya karena beliau mengajarkan logika berpikir bukan sekadar menghafal rumus mati.",
-    publicScores: {
-      kejelasanArtikulasi: { score: 5, citation: "detik 0:02 - artikulasi sangat tajam dan jernih." },
-      intonasiTekanan: { score: 4, citation: "detik 0:09 - penekanan kata 'logika' sangat baik." },
-      kecepatanTempo: { score: 5, citation: "detik 0:14 - tempo sangat ideal." },
-      kontakMataGestur: { score: 4, citation: "detik 0:20 - ekspresi mendukung." },
-      kepercayaanDiri: { score: 5, citation: "detik 0:25 - sangat percaya diri." }
-    },
-    criticalScores: {
-      analisisPremis: { score: 5, citation: "detik 0:04 - langsung pada inti esensi pendidikan." },
-      evaluasiBukti: { score: 4, citation: "detik 0:11 - menggunakan contoh personal yang kuat." },
-      inferensiLogika: { score: 5, citation: "detik 0:18 - deduksi sangat logis." },
-      strukturArgumen: { score: 4, citation: "detik 0:23 - struktur pembuka-isi-penutup rapi." },
-      rebuttalSanggahan: { score: 4, citation: "detik 0:28 - mengantisipasi sudut pandang lain." }
-    },
-    totalScore: 90
+    date: "14 Sep 2026",
+    transcript: "guru paling berkesan bagi saya adalah guru matematika saya karena beliau mengajarkan logika berpikir bukan sekadar menghafal rumus.",
+    publicScores: { kejelasanIsi: 5, kefasihanVokal: 4, diksi: 5, intonasiPacing: 4, kepercayaanDiri: 5 },
+    criticalScores: { analisis: 5, evaluasi: 4, inferensi: 5, eksplanasi: 4, regulasiDiri: 5 },
+    totalScore: 92,
+    wpm: 110,
+    fillers: [],
+    aiReason: "Penyampaian sangat terstruktur, menggunakan contoh personal yang kuat, serta minim kesalahan.",
+    feedback: "Pertahankan intonasi dan ketegasan artikulasi yang sudah sangat baik.",
+    toPractice: "Eksplorasi sanggahan tingkat lanjut untuk mempertajam debat.",
+    goodPoints: "Artikulasi jelas, struktur argumen runut, dan diksi sangat tepat.",
+    badPoints: null
   }
 ];
 
 export default function SpeakingApp() {
   const [activeTab, setActiveTab] = useState("latihan");
 
-  // State Akun & Profil
   const [userName, setUserName] = useState("Aisyah");
   const [isPublic, setIsPublic] = useState(true);
 
-  // State Utama Aplikasi
   const [isSparringMode, setIsSparringMode] = useState(false);
   const [sparringOpini, setSparringOpini] = useState("");
   const [filterLevel, setFilterLevel] = useState("Menengah");
-  
-  const [currentTopic, setCurrentTopic] = useState(topicDatabase[25]); // Default Q026 (Menengah)
+  const [currentTopic, setCurrentTopic] = useState(topicDatabase[25]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [evaluationResult, setEvaluationResult] = useState<any>(null);
+  const [activeEvalTab, setActiveEvalTab] = useState<"critical" | "public">("critical");
 
-  // State Riwayat & Perbandingan
   const [historyList, setHistoryList] = useState(initialHistory);
   const [selectedHistory1, setSelectedHistory1] = useState(initialHistory[0].id);
   const [selectedHistory2, setSelectedHistory2] = useState(initialHistory[1].id);
@@ -213,40 +195,61 @@ export default function SpeakingApp() {
 
   const handleStopRecording = () => {
     setIsRecording(false);
-    const simulatedText = "menurut analisis saya isu ini sangat kompleks karena melibatkan aspek etika dan juga efisiensi sistem yang berjalan saat ini.";
+    // Mensimulasikan kondisi ketika pengguna baru bicara sedikit / satu kata (misal: "euh...")
+    const simulatedText = "euh... menurut saya itu kurang tepat.";
     setTranscript(simulatedText);
-    
-    // Evaluasi ketat berdasarkan prompt (Skala 1-5 per item, total 10 item)
-    const newEval = {
-      publicScores: {
-        kejelasanArtikulasi: { score: 4, citation: "detik 0:02 - artikulasi kata 'kompleks' jernih." },
-        intonasiTekanan: { score: 3, citation: "detik 0:07 - intonasi agak monoton di bagian tengah." },
-        kecepatanTempo: { score: 4, citation: "detik 0:12 - kecepatan bicara stabil." },
-        kontakMataGestur: { score: 3, citation: "detik 0:16 - kurang variasi ekspresi." },
-        kepercayaanDiri: { score: 4, citation: "detik 0:20 - disampaikan tanpa keraguan berarti." }
-      },
-      criticalScores: {
-        analisisPremis: { score: 4, citation: "detik 0:03 - langsung mengarah ke inti masalah etika." },
-        evaluasiBukti: { score: 2, citation: "detik 0:09 - (Aturan Wajar/AI) minim bukti empiris, hanya opini umum." },
-        inferensiLogika: { score: 4, citation: "detik 0:14 - hubungan sebab-akibat cukup logis." },
-        strukturArgumen: { score: 3, citation: "detik 0:18 - alur agak berulang di akhir kalimat." },
-        rebuttalSanggahan: { score: 3, citation: "detik 0:22 - belum menyertakan sanggahan tandingan." }
-      },
-      totalScore: 74,
-      aiNote: "Evaluasi Objektif: Berdasarkan aturan AI, durasi panjang tanpa data pendukung mendalam membatasi skor evaluasi bukti ke angka 2."
-    };
 
-    setEvaluationResult(newEval);
+    // Deteksi filler sederhana
+    const detectedFillers = ["euh", "eh", "anu", "hmm"].filter(f => simulatedText.toLowerCase().includes(f));
+    const wordCount = simulatedText.split(" ").length;
 
-    // Tambahkan ke riwayat otomatis
+    let evalData;
+    if (wordCount <= 5) {
+      // Skor minimum jika baru bicara sedikit / satu kata
+      evalData = {
+        publicScores: { kejelasanIsi: 1, kefasihanVokal: 1, diksi: 1, intonasiPacing: 1, kepercayaanDiri: 1 },
+        criticalScores: { analisis: 1, evaluasi: 1, inferensi: 1, eksplanasi: 1, regulasiDiri: 1 },
+        totalScore: 20,
+        wpm: 25,
+        fillers: detectedFillers,
+        aiReason: "Rekaman dihentikan saat awal atau hanya berisi sedikit kata, sehingga tidak memenuhi standar kedalaman argumen.",
+        feedback: "Cobalah untuk berbicara minimal 30-60 detik dan kembangkan alasan Anda secara utuh.",
+        toPractice: "Latihan merangkai opini lengkap tanpa terhenti di awal.",
+        goodPoints: null,
+        badPoints: "Durasi terlalu singkat, isi kalimat belum lengkap, dan terdapat kata filler."
+      };
+    } else {
+      evalData = {
+        publicScores: { kejelasanIsi: 4, kefasihanVokal: 4, diksi: 4, intonasiPacing: 4, kepercayaanDiri: 4 },
+        criticalScores: { analisis: 4, evaluasi: 4, inferensi: 4, eksplanasi: 4, regulasiDiri: 4 },
+        totalScore: 80,
+        wpm: 72,
+        fillers: detectedFillers,
+        aiReason: "Argumen disampaikan dengan struktur cukup baik namun masih memerlukan variasi bukti empiris.",
+        feedback: "Perkaya argumen dengan data atau contoh konkret di tengah kalimat.",
+        toPractice: "Latihan teknik elaborasi data dan fakta.",
+        goodPoints: "Penyampaian cukup tenang dan artikulasi jelas.",
+        badPoints: "Kurang adanya pendukung data statistik yang kuat."
+      };
+    }
+
+    setEvaluationResult(evalData);
+
     const newHistoryItem = {
       id: "H" + (historyList.length + 1),
       title: currentTopic.title + " (" + currentTopic.id + ")",
-      date: "Hari ini",
+      date: "Baru saja",
       transcript: simulatedText,
-      publicScores: newEval.publicScores,
-      criticalScores: newEval.criticalScores,
-      totalScore: newEval.totalScore
+      publicScores: evalData.publicScores,
+      criticalScores: evalData.criticalScores,
+      totalScore: evalData.totalScore,
+      wpm: evalData.wpm,
+      fillers: evalData.fillers,
+      aiReason: evalData.aiReason,
+      feedback: evalData.feedback,
+      toPractice: evalData.toPractice,
+      goodPoints: evalData.goodPoints,
+      badPoints: evalData.badPoints
     };
     setHistoryList([newHistoryItem, ...historyList]);
   };
@@ -255,27 +258,27 @@ export default function SpeakingApp() {
   const item2 = historyList.find(h => h.id === selectedHistory2) || historyList[1] || historyList[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-200 via-purple-100 to-sky-200 p-4 md:p-8 text-slate-800 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-100 to-rose-100 p-4 md:p-8 text-slate-800 font-sans">
       
       {/* HEADER & BRANDING */}
       <div className="max-w-6xl mx-auto text-center mb-6">
-        <span className="px-3 py-1 bg-white/70 text-indigo-900 font-bold text-xs rounded-full uppercase tracking-wider backdrop-blur-sm shadow-sm border border-indigo-100">
+        <span className="px-3 py-1 bg-white/70 text-rose-900 font-bold text-xs rounded-full uppercase tracking-wider backdrop-blur-sm shadow-sm border border-pink-200">
           100+ Critical Thinking & AI Public Speaking Coach
         </span>
-        <h1 className="text-4xl font-black text-indigo-950 mt-2">OddMind</h1>
-        <p className="text-xs text-indigo-800 mt-1 font-semibold">Train Your Mind, Shape Your Future</p>
+        <h1 className="text-4xl font-black text-rose-950 mt-2">OddMind</h1>
+        <p className="text-xs text-rose-800 mt-1 font-semibold">Train Your Mind, Shape Your Future</p>
 
         {/* STATUS BAR */}
-        <div className="inline-flex items-center gap-4 bg-white/80 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-indigo-100 mt-4">
-          <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs">
+        <div className="inline-flex items-center gap-4 bg-white/80 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-pink-200 mt-4">
+          <div className="flex items-center gap-1.5 text-rose-600 font-bold text-xs">
             <Flame className="w-4 h-4" /> 1 Hari Streak
           </div>
-          <div className="w-px h-4 bg-indigo-200"></div>
-          <div className="flex items-center gap-1.5 text-indigo-700 font-bold text-xs">
+          <div className="w-px h-4 bg-pink-200"></div>
+          <div className="flex items-center gap-1.5 text-pink-700 font-bold text-xs">
             <Sparkles className="w-4 h-4" /> Level 3: Logical Thinker
           </div>
-          <div className="w-px h-4 bg-indigo-200"></div>
-          <div className="flex items-center gap-1.5 text-cyan-700 font-bold text-xs">
+          <div className="w-px h-4 bg-pink-200"></div>
+          <div className="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
             <Award className="w-4 h-4" /> 538 XP (100 Topik Aktif)
           </div>
         </div>
@@ -299,8 +302,8 @@ export default function SpeakingApp() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
                 isActive 
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25" 
-                  : "bg-white/70 text-indigo-950 hover:bg-white/90 backdrop-blur-sm border border-indigo-100"
+                  ? "bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-500/25" 
+                  : "bg-white/70 text-rose-950 hover:bg-white/90 backdrop-blur-sm border border-pink-200"
               }`}
             >
               <Icon className="w-4 h-4" /> {tab.label}
@@ -320,21 +323,21 @@ export default function SpeakingApp() {
             <div className="lg:col-span-6 space-y-6">
               
               {/* Challenge Card */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border-l-4 border-amber-500 shadow-sm border border-indigo-100">
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-5 border-l-4 border-rose-500 shadow-sm border border-pink-200">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="px-3 py-1 bg-amber-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1">
+                  <span className="px-3 py-1 bg-rose-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1">
                     <Flame className="w-3.5 h-3.5" /> CRITICAL CHALLENGE
                   </span>
                   <div className="flex gap-2">
                     <button 
                       onClick={toggleSparringMode} 
                       className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 ${
-                        isSparringMode ? "bg-rose-600 text-white" : "bg-indigo-50 text-indigo-700"
+                        isSparringMode ? "bg-rose-700 text-white" : "bg-pink-50 text-rose-700"
                       }`}
                     >
                       <Swords className="w-3.5 h-3.5" /> {isSparringMode ? "Sparring ON" : "Debat AI"}
                     </button>
-                    <button onClick={getNewCard} className="px-3 py-1 bg-amber-500 text-white font-bold text-xs rounded-lg">Acak</button>
+                    <button onClick={getNewCard} className="px-3 py-1 bg-rose-500 text-white font-bold text-xs rounded-lg">Acak</button>
                   </div>
                 </div>
 
@@ -345,35 +348,35 @@ export default function SpeakingApp() {
                   </div>
                 ) : (
                   <>
-                    <h3 className="font-bold text-indigo-950 text-sm mt-1">{currentTopic.title}</h3>
+                    <h3 className="font-bold text-rose-950 text-sm mt-1">{currentTopic.title}</h3>
                     <p className="text-slate-700 text-xs mt-0.5">{currentTopic.question}</p>
                   </>
                 )}
               </div>
 
               {/* Card Topik Utama */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100">
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-full">{currentTopic.level}</span>
-                    <span className="px-3 py-1 bg-sky-100 text-sky-700 font-semibold text-xs rounded-full">{currentTopic.category}</span>
+                    <span className="px-3 py-1 bg-pink-100 text-rose-800 font-semibold text-xs rounded-full">{currentTopic.level}</span>
+                    <span className="px-3 py-1 bg-rose-100 text-rose-800 font-semibold text-xs rounded-full">{currentTopic.category}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-indigo-500">{currentTopic.id}</span>
+                  <span className="text-xs font-mono font-bold text-rose-600">{currentTopic.id}</span>
                 </div>
 
                 <div className="text-center py-4">
-                  <h2 className="text-xl font-extrabold text-indigo-950 mb-2">{currentTopic.title}</h2>
+                  <h2 className="text-xl font-extrabold text-rose-950 mb-2">{currentTopic.title}</h2>
                   <p className="text-slate-700 text-sm leading-relaxed">{currentTopic.question}</p>
                 </div>
 
                 {/* Filter Level */}
-                <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-indigo-100">
+                <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-pink-200">
                   <div>
-                    <label className="block text-xs font-bold text-indigo-900 mb-1">Pilih Level Topik</label>
+                    <label className="block text-xs font-bold text-rose-900 mb-1">Pilih Level Topik</label>
                     <select
                       value={filterLevel}
                       onChange={(e) => setFilterLevel(e.target.value)}
-                      className="w-full bg-white/90 border border-indigo-200 text-indigo-950 text-xs rounded-xl p-2.5 outline-none font-bold shadow-sm"
+                      className="w-full bg-white/90 border border-pink-200 text-rose-950 text-xs rounded-xl p-2.5 outline-none font-bold shadow-sm"
                     >
                       <option value="Pemula">Pemula (Q001-Q025)</option>
                       <option value="Menengah">Menengah (Q026-Q055)</option>
@@ -382,8 +385,8 @@ export default function SpeakingApp() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-indigo-900 mb-1">Aksi Kartu</label>
-                    <button onClick={getNewCard} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
+                    <label className="block text-xs font-bold text-rose-900 mb-1">Aksi Kartu</label>
+                    <button onClick={getNewCard} className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
                       <Layers className="w-3.5 h-3.5" /> Ambil Kartu Baru
                     </button>
                   </div>
@@ -391,11 +394,11 @@ export default function SpeakingApp() {
               </div>
 
               {/* Perekaman */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 text-center shadow-sm border border-indigo-100">
-                <p className="text-xs font-bold text-indigo-500 mb-1">BATAS WAKTU: 2 MENIT</p>
-                <div className="text-3xl font-mono font-black text-indigo-950 mb-4">02:00</div>
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 text-center shadow-sm border border-pink-200">
+                <p className="text-xs font-bold text-rose-600 mb-1">BATAS WAKTU: 2 MENIT</p>
+                <div className="text-3xl font-mono font-black text-rose-950 mb-4">02:00</div>
                 {!isRecording ? (
-                  <button onClick={handleStartRecording} className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2">
+                  <button onClick={handleStartRecording} className="w-full py-3.5 bg-gradient-to-r from-rose-600 to-pink-500 hover:opacity-95 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2">
                     <Mic className="w-4 h-4" /> Mulai Rekam Argumen Kritis
                   </button>
                 ) : (
@@ -406,95 +409,133 @@ export default function SpeakingApp() {
               </div>
 
               {/* Transkrip */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100">
-                <h3 className="text-xs font-black text-indigo-900 tracking-wider mb-2">TRANSKRIP ARGUMEN</h3>
-                <div className="p-3 bg-white/60 rounded-xl min-h-[70px] border border-indigo-100 flex items-center">
-                  <p className="text-xs italic text-indigo-950">{transcript || "Rekam argumen Anda untuk dianalisis..."}</p>
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
+                <h3 className="text-xs font-black text-rose-900 tracking-wider mb-2">TRANSKRIP ARGUMEN</h3>
+                <div className="p-3 bg-white/60 rounded-xl min-h-[70px] border border-pink-100 flex items-center">
+                  <p className="text-xs italic text-rose-950">{transcript || "Rekam argumen Anda untuk dianalisis..."}</p>
                 </div>
               </div>
             </div>
 
-            {/* KANAN: EVALUASI BERDASARKAN PROMPT */}
+            {/* KANAN: EVALUASI KELAS (KOMPAK & DESIGN SEPERTI GAMBAR) */}
             <div className="lg:col-span-6 space-y-6">
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100">
-                <div className="flex justify-between items-start mb-4 border-b border-indigo-100 pb-3">
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
+                
+                {/* Header Evaluasi */}
+                <div className="flex justify-between items-start mb-4 border-b border-pink-200 pb-3">
                   <div>
-                    <h3 className="text-base font-black text-indigo-950 flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-indigo-600" /> Penilaian Independen AI
-                    </h3>
-                    <p className="text-[11px] text-slate-500">Skala 1–5 | Standar Wajar (3 = Rata-rata)</p>
+                    <h3 className="text-base font-black text-rose-950">Evaluasi AI & Rubrik OddMind</h3>
+                    <p className="text-[11px] text-slate-500">Penilaian Otomatis Berdasarkan Critical Thinking & Public Speaking</p>
                   </div>
-                  <div className="text-right bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
-                    <span className="text-[10px] font-bold text-indigo-500 block">TOTAL SKOR</span>
-                    <div className="text-2xl font-black text-indigo-700">{evaluationResult ? evaluationResult.totalScore : "-"} <span className="text-xs text-slate-400">/100</span></div>
+                  <div className="text-right">
+                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Overall Score</span>
+                    <span className="text-2xl font-black text-rose-600">
+                      {evaluationResult ? evaluationResult.totalScore : "0"} <span className="text-xs text-slate-400">/ 100</span>
+                    </span>
                   </div>
                 </div>
 
-                {/* Bagian Public Speaking (5 Poin) */}
-                <div className="mb-5">
-                  <h4 className="text-xs font-black uppercase text-indigo-900 mb-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-indigo-600"></span> 5 Poin Public Speaking
-                  </h4>
-                  <div className="space-y-2">
-                    {[
-                      { key: "kejelasanArtikulasi", label: "1. Kejelasan Artikulasi & Pelafalan" },
-                      { key: "intonasiTekanan", label: "2. Intonasi & Tekanan Suara" },
-                      { key: "kecepatanTempo", label: "3. Kecepatan & Tempo Bicara" },
-                      { key: "kontakMataGestur", label: "4. Kontak Mata & Ekspresi/Gestur" },
-                      { key: "kepercayaanDiri", label: "5. Kepercayaan Diri & Kelancaran" }
+                {/* Tab Pilihan Kategori Rubrik */}
+                <div className="flex gap-2 border-b border-pink-200 pb-3 mb-4">
+                  <button
+                    onClick={() => setActiveEvalTab("critical")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeEvalTab === "critical"
+                        ? "bg-rose-600 text-white shadow-sm"
+                        : "bg-pink-50 text-rose-900 hover:bg-pink-100"
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Critical Thinking
+                  </button>
+                  <button
+                    onClick={() => setActiveEvalTab("public")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeEvalTab === "public"
+                        ? "bg-rose-600 text-white shadow-sm"
+                        : "bg-pink-50 text-rose-900 hover:bg-pink-100"
+                    }`}
+                  >
+                    <Mic className="w-3.5 h-3.5" /> Public Speaking
+                  </button>
+                </div>
+
+                {/* List 5 Poin Compact */}
+                <div className="space-y-2.5 mb-5">
+                  {activeEvalTab === "critical" ? (
+                    [
+                      { key: "analisis", label: "1. Analisis Premis" },
+                      { key: "evaluasi", label: "2. Evaluasi Bukti" },
+                      { key: "inferensi", label: "3. Inferensi Logika" },
+                      { key: "eksplanasi", label: "4. Struktur & Eksplanasi" },
+                      { key: "regulasiDiri", label: "5. Regulasi & Sanggahan" }
                     ].map((item) => {
-                      const data = evaluationResult ? evaluationResult.publicScores[item.key] : { score: "-", citation: "Belum dinilai" };
+                      const scoreVal = evaluationResult ? evaluationResult.criticalScores[item.key] : 1;
                       return (
-                        <div key={item.key} className="p-2.5 bg-white/60 rounded-xl border border-indigo-50 flex flex-col gap-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-800">{item.label}</span>
-                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded">
-                              {data.score} / 5
-                            </span>
-                          </div>
-                          <p className="text-[10px] italic text-slate-500">Sitasi: "{data.citation}"</p>
+                        <div key={item.key} className="p-3 bg-white/70 border border-pink-100 rounded-xl flex justify-between items-center">
+                          <span className="text-xs font-bold text-rose-950">{item.label}</span>
+                          <span className="px-3 py-1 bg-pink-50 border border-pink-200 text-rose-700 font-extrabold text-xs rounded-lg">
+                            {scoreVal} / 5
+                          </span>
                         </div>
                       );
-                    })}
-                  </div>
-                </div>
-
-                {/* Bagian Critical Speaking (5 Poin) */}
-                <div className="mb-4">
-                  <h4 className="text-xs font-black uppercase text-purple-900 mb-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-600"></span> 5 Poin Critical Speaking
-                  </h4>
-                  <div className="space-y-2">
-                    {[
-                      { key: "analisisPremis", label: "1. Analisis Premis & Identifikasi Masalah" },
-                      { key: "evaluasiBukti", label: "2. Evaluasi Bukti & Argumen Empiris" },
-                      { key: "inferensiLogika", label: "3. Inferensi Logika & Hubungan Sebab-Akibat" },
-                      { key: "strukturArgumen", label: "4. Struktur & Kejelasan Argumen" },
-                      { key: "rebuttalSanggahan", label: "5. Kualitas Rebuttal / Sanggahan Kritis" }
+                    })
+                  ) : (
+                    [
+                      { key: "kejelasanIsi", label: "1. Kejelasan Artikulasi" },
+                      { key: "kefasihanVokal", label: "2. Intonasi & Tekanan" },
+                      { key: "diksi", label: "3. Kecepatan & Tempo" },
+                      { key: "intonasiPacing", label: "4. Kontak Mata / Gestur" },
+                      { key: "kepercayaanDiri", label: "5. Kepercayaan Diri" }
                     ].map((item) => {
-                      const data = evaluationResult ? evaluationResult.criticalScores[item.key] : { score: "-", citation: "Belum dinilai" };
+                      const scoreVal = evaluationResult ? evaluationResult.publicScores[item.key] : 1;
                       return (
-                        <div key={item.key} className="p-2.5 bg-white/60 rounded-xl border border-purple-50 flex flex-col gap-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-800">{item.label}</span>
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-extrabold text-xs rounded">
-                              {data.score} / 5
-                            </span>
-                          </div>
-                          <p className="text-[10px] italic text-slate-500">Sitasi: "{data.citation}"</p>
+                        <div key={item.key} className="p-3 bg-white/70 border border-pink-100 rounded-xl flex justify-between items-center">
+                          <span className="text-xs font-bold text-rose-950">{item.label}</span>
+                          <span className="px-3 py-1 bg-pink-50 border border-pink-200 text-rose-700 font-extrabold text-xs rounded-lg">
+                            {scoreVal} / 5
+                          </span>
                         </div>
                       );
-                    })}
+                    })
+                  )}
+                </div>
+
+                {/* TEMPO & FILLER COUNTER SECTION */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="p-3 bg-sky-50/80 border border-sky-100 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-sky-800 uppercase block">Tempo (WPM)</span>
+                    <span className="text-base font-black text-sky-900">{evaluationResult ? evaluationResult.wpm : "0"} WPM</span>
+                  </div>
+                  <div className="p-3 bg-amber-50/80 border border-amber-100 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase block">Filler Terdeteksi</span>
+                    <span className="text-xs font-bold text-amber-900 truncate block mt-0.5">
+                      {evaluationResult && evaluationResult.fillers.length > 0 ? evaluationResult.fillers.join(", ") : "Tidak ada"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Aturan AI Catatan Khusus */}
+                {/* AI DETAILED FEEDBACK BOX (Alasan, Feedback, Latihan, Baik/Buruk) */}
                 {evaluationResult && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-amber-900 font-medium">{evaluationResult.aiNote}</p>
+                  <div className="p-4 bg-pink-50/80 border border-pink-200 rounded-xl space-y-2 text-xs text-rose-950">
+                    <div className="flex items-center gap-1.5 font-black text-rose-800">
+                      <Sparkles className="w-4 h-4" /> Alasan & Evaluasi AI:
+                    </div>
+                    <p><b>Kenapa skor ini:</b> {evaluationResult.aiReason}</p>
+                    <p><b>Feedback:</b> {evaluationResult.feedback}</p>
+                    <p><b>Yang harus dilatih:</b> {evaluationResult.toPractice}</p>
+                    {evaluationResult.goodPoints && (
+                      <p className="text-emerald-700 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> <b>Baik:</b> {evaluationResult.goodPoints}
+                      </p>
+                    )}
+                    {evaluationResult.badPoints && (
+                      <p className="text-rose-700 flex items-center gap-1">
+                        <XCircle className="w-3.5 h-3.5 shrink-0" /> <b>Kurang:</b> {evaluationResult.badPoints}
+                      </p>
+                    )}
                   </div>
                 )}
+
               </div>
             </div>
 
@@ -503,72 +544,49 @@ export default function SpeakingApp() {
 
         {/* TAB 2: RAPOR & GRAFIK */}
         {activeTab === "rapor" && (
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-indigo-100 space-y-6">
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-6">
             <div>
-              <h2 className="text-xl font-black text-indigo-950">Rapor Perkembangan & Grafik Analitik</h2>
+              <h2 className="text-xl font-black text-rose-950">Rapor Perkembangan & Grafik Analitik</h2>
               <p className="text-xs text-slate-500 mt-1">Visualisasi kemajuan kemampuan berpikir kritis dan public speaking Anda.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl shadow-sm">
+              <div className="p-5 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl shadow-sm">
                 <span className="text-xs font-bold opacity-80">RATA-RATA SKOR</span>
                 <p className="text-3xl font-black mt-1">82.5 <span className="text-sm font-normal">/100</span></p>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">+5.4% dari minggu lalu</span>
               </div>
-              <div className="p-5 bg-gradient-to-br from-sky-500 to-indigo-600 text-white rounded-2xl shadow-sm">
+              <div className="p-5 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-2xl shadow-sm">
                 <span className="text-xs font-bold opacity-80">TOTAL SESI LATIHAN</span>
                 <p className="text-3xl font-black mt-1">47 Sesi</p>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">Konsisten 12 Hari</span>
               </div>
-              <div className="p-5 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-2xl shadow-sm">
+              <div className="p-5 bg-gradient-to-br from-purple-600 to-rose-600 text-white rounded-2xl shadow-sm">
                 <span className="text-xs font-bold opacity-80">LEVEL KEMAMPUAN</span>
                 <p className="text-2xl font-black mt-1">Logical Thinker</p>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">Level 3 (Advanced)</span>
               </div>
             </div>
 
-            {/* Bagian Visualisasi Grafik */}
-            <div className="p-6 bg-white/50 border border-indigo-100 rounded-2xl space-y-4">
-              <h3 className="text-sm font-black text-indigo-950">Grafik Perkembangan Skor per Aspek (5 Sesi Terakhir)</h3>
-              
+            <div className="p-6 bg-white/50 border border-pink-200 rounded-2xl space-y-4">
+              <h3 className="text-sm font-black text-rose-950">Grafik Perkembangan Skor per Aspek</h3>
               <div className="space-y-3">
                 <div>
-                  <div className="flex justify-between text-xs font-bold text-indigo-900 mb-1">
+                  <div className="flex justify-between text-xs font-bold text-rose-900 mb-1">
                     <span>Analisis Premis</span>
                     <span>85%</span>
                   </div>
                   <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: "85%" }}></div>
+                    <div className="bg-rose-600 h-full rounded-full" style={{ width: "85%" }}></div>
                   </div>
                 </div>
-
                 <div>
-                  <div className="flex justify-between text-xs font-bold text-indigo-900 mb-1">
+                  <div className="flex justify-between text-xs font-bold text-rose-900 mb-1">
                     <span>Evaluasi Bukti</span>
                     <span>78%</span>
                   </div>
                   <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-purple-600 h-full rounded-full" style={{ width: "78%" }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-indigo-900 mb-1">
-                    <span>Inferensi Logika</span>
-                    <span>90%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-sky-600 h-full rounded-full" style={{ width: "90%" }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-indigo-900 mb-1">
-                    <span>Struktur Argumen</span>
-                    <span>80%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-pink-600 h-full rounded-full" style={{ width: "80%" }}></div>
+                    <div className="bg-pink-600 h-full rounded-full" style={{ width: "78%" }}></div>
                   </div>
                 </div>
               </div>
@@ -576,24 +594,23 @@ export default function SpeakingApp() {
           </div>
         )}
 
-        {/* TAB 3: RIWAYAT & PERBANDINGAN (FUNGSI BARU SESUAI PERMINTAAN) */}
+        {/* TAB 3: RIWAYAT & PERBANDINGAN */}
         {activeTab === "riwayat" && (
           <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100">
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
               <div className="flex items-center gap-2 mb-2">
-                <GitCompare className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-xl font-black text-indigo-950">Perbandingan Riwayat Rekaman</h2>
+                <GitCompare className="w-5 h-5 text-rose-600" />
+                <h2 className="text-xl font-black text-rose-950">Perbandingan Riwayat Rekaman</h2>
               </div>
-              <p className="text-xs text-slate-500 mb-4">Pilih dua rekaman di bawah ini untuk membandingkan skor, sitasi, dan peningkatan kemampuan Anda.</p>
+              <p className="text-xs text-slate-500 mb-4">Pilih dua rekaman di bawah ini untuk membandingkan skor, transkrip, dan evaluasi AI.</p>
 
-              {/* Selector untuk Perbandingan */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-pink-50/50 rounded-xl border border-pink-200">
                 <div>
-                  <label className="block text-xs font-bold text-indigo-900 mb-1">Pilih Rekaman 1 (Pembanding A)</label>
+                  <label className="block text-xs font-bold text-rose-900 mb-1">Rekaman 1</label>
                   <select 
                     value={selectedHistory1} 
                     onChange={(e) => setSelectedHistory1(e.target.value)}
-                    className="w-full bg-white border border-indigo-200 rounded-xl p-2.5 text-xs font-bold text-indigo-950 outline-none"
+                    className="w-full bg-white border border-pink-200 rounded-xl p-2.5 text-xs font-bold text-rose-950 outline-none"
                   >
                     {historyList.map(h => (
                       <option key={h.id} value={h.id}>{h.title} ({h.date}) - Skor: {h.totalScore}</option>
@@ -601,11 +618,11 @@ export default function SpeakingApp() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-indigo-900 mb-1">Pilih Rekaman 2 (Pembanding B)</label>
+                  <label className="block text-xs font-bold text-rose-900 mb-1">Rekaman 2</label>
                   <select 
                     value={selectedHistory2} 
                     onChange={(e) => setSelectedHistory2(e.target.value)}
-                    className="w-full bg-white border border-indigo-200 rounded-xl p-2.5 text-xs font-bold text-indigo-950 outline-none"
+                    className="w-full bg-white border border-pink-200 rounded-xl p-2.5 text-xs font-bold text-rose-950 outline-none"
                   >
                     {historyList.map(h => (
                       <option key={h.id} value={h.id}>{h.title} ({h.date}) - Skor: {h.totalScore}</option>
@@ -615,159 +632,95 @@ export default function SpeakingApp() {
               </div>
             </div>
 
-            {/* Sisi-ke-Sisi Grid Perbandingan */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Rekaman 1 */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100 space-y-4">
-                <div className="flex justify-between items-start border-b border-indigo-100 pb-3">
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200 space-y-4">
+                <div className="flex justify-between items-start border-b border-pink-200 pb-3">
                   <div>
-                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{item1.date}</span>
-                    <h3 className="font-extrabold text-indigo-950 text-base mt-1">{item1.title}</h3>
+                    <span className="text-[10px] font-bold bg-pink-100 text-rose-800 px-2 py-0.5 rounded">{item1.date}</span>
+                    <h3 className="font-extrabold text-rose-950 text-base mt-1">{item1.title}</h3>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-bold text-slate-400 block">TOTAL SKOR</span>
-                    <span className="text-2xl font-black text-indigo-600">{item1.totalScore}</span>
+                    <span className="text-2xl font-black text-rose-600">{item1.totalScore}</span>
                   </div>
                 </div>
-
-                <div className="p-3 bg-white/60 rounded-xl border border-indigo-50">
+                <div className="p-3 bg-white/60 rounded-xl border border-pink-100">
                   <span className="text-[10px] font-bold text-slate-400 block mb-1">TRANSKRIP:</span>
                   <p className="text-xs italic text-slate-700">"{item1.transcript}"</p>
                 </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-xs font-black uppercase text-indigo-900">Ringkasan Skor Poin (1-5):</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 bg-indigo-50/60 rounded-lg">Artikulasi: <b>{item1.publicScores.kejelasanArtikulasi.score}/5</b></div>
-                    <div className="p-2 bg-indigo-50/60 rounded-lg">Intonasi: <b>{item1.publicScores.intonasiTekanan.score}/5</b></div>
-                    <div className="p-2 bg-purple-50/60 rounded-lg">Premis: <b>{item1.criticalScores.analisisPremis.score}/5</b></div>
-                    <div className="p-2 bg-purple-50/60 rounded-lg">Logika: <b>{item1.criticalScores.inferensiLogika.score}/5</b></div>
-                  </div>
-                </div>
               </div>
 
-              {/* Rekaman 2 */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100 space-y-4">
-                <div className="flex justify-between items-start border-b border-indigo-100 pb-3">
+              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200 space-y-4">
+                <div className="flex justify-between items-start border-b border-pink-200 pb-3">
                   <div>
-                    <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{item2.date}</span>
-                    <h3 className="font-extrabold text-indigo-950 text-base mt-1">{item2.title}</h3>
+                    <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded">{item2.date}</span>
+                    <h3 className="font-extrabold text-rose-950 text-base mt-1">{item2.title}</h3>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-bold text-slate-400 block">TOTAL SKOR</span>
-                    <span className="text-2xl font-black text-purple-600">{item2.totalScore}</span>
+                    <span className="text-2xl font-black text-rose-600">{item2.totalScore}</span>
                   </div>
                 </div>
-
-                <div className="p-3 bg-white/60 rounded-xl border border-indigo-50">
+                <div className="p-3 bg-white/60 rounded-xl border border-pink-100">
                   <span className="text-[10px] font-bold text-slate-400 block mb-1">TRANSKRIP:</span>
                   <p className="text-xs italic text-slate-700">"{item2.transcript}"</p>
                 </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-xs font-black uppercase text-purple-900">Ringkasan Skor Poin (1-5):</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 bg-indigo-50/60 rounded-lg">Artikulasi: <b>{item2.publicScores.kejelasanArtikulasi.score}/5</b></div>
-                    <div className="p-2 bg-indigo-50/60 rounded-lg">Intonasi: <b>{item2.publicScores.intonasiTekanan.score}/5</b></div>
-                    <div className="p-2 bg-purple-50/60 rounded-lg">Premis: <b>{item2.criticalScores.analisisPremis.score}/5</b></div>
-                    <div className="p-2 bg-purple-50/60 rounded-lg">Logika: <b>{item2.criticalScores.inferensiLogika.score}/5</b></div>
-                  </div>
-                </div>
               </div>
-
-            </div>
-
-            {/* Analisis Perbandingan Selisih */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-100">
-              <h3 className="text-sm font-black text-indigo-950 mb-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" /> Analisis Komparatif AI
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Perbandingan antara <b className="text-indigo-900">{item1.title}</b> dan <b className="text-indigo-900">{item2.title}</b> menunjukkan selisih total skor sebesar <b className="text-indigo-700">{Math.abs(item1.totalScore - item2.totalScore)} poin</b>. Rekaman {item1.totalScore > item2.totalScore ? item1.title : item2.title} memiliki keunggulan signifikan pada struktur argumen dan kejelasan bukti empiris.
-              </p>
             </div>
           </div>
         )}
 
         {/* TAB 4: VIDEO LEARNING HUB */}
         {activeTab === "video" && (
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-indigo-100 space-y-6">
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-6">
             <div>
-              <h2 className="text-xl font-black text-indigo-950">Video Learning Hub</h2>
-              <p className="text-xs text-slate-500 mt-1">Kurasi video pilihan untuk mempertajam kemampuan public speaking dan berpikir kritis.</p>
+              <h2 className="text-xl font-black text-rose-950">Video Learning Hub</h2>
+              <p className="text-xs text-slate-500 mt-1">Kurasi video pilihan untuk mempertajam kemampuan public speaking.</p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              
-              {/* Video 1 */}
-              <div className="p-5 bg-white/60 border border-indigo-100 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
+              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
                 <div>
                   <span className="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-[10px] rounded">Public Speaking</span>
-                  <h4 className="font-bold text-sm text-indigo-950 mt-2">How to Be Confident in Public Speaking</h4>
-                  <p className="text-xs text-slate-600 mt-1">Pelajari teknik dasar menguasai panggung dan mengatasi grogi saat berbicara.</p>
+                  <h4 className="font-bold text-sm text-rose-950 mt-2">How to Be Confident</h4>
                 </div>
-                <a 
-                  href="https://www.youtube.com/results?search_query=how+to+be+confident+in+public+speaking" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                >
+                <a href="https://www.youtube.com/results?search_query=how+to+be+confident+in+public+speaking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
                   <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
                 </a>
               </div>
-
-              {/* Video 2 */}
-              <div className="p-5 bg-white/60 border border-indigo-100 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
+              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
                 <div>
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-[10px] rounded">Critical Thinking</span>
-                  <h4 className="font-bold text-sm text-indigo-950 mt-2">How to Improve Critical Thinking</h4>
-                  <p className="text-xs text-slate-600 mt-1">Langkah praktis melatih logika dan mempertajam cara menganalisis masalah.</p>
+                  <span className="px-2 py-0.5 bg-pink-100 text-pink-700 font-bold text-[10px] rounded">Critical Thinking</span>
+                  <h4 className="font-bold text-sm text-rose-950 mt-2">Critical Thinking 101</h4>
                 </div>
-                <a 
-                  href="https://www.youtube.com/results?search_query=how+to+improve+critical+thinking" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                >
+                <a href="https://www.youtube.com/results?search_query=how+to+improve+critical+thinking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-pink-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
                   <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
                 </a>
               </div>
-
-              {/* Video 3 */}
-              <div className="p-5 bg-white/60 border border-indigo-100 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
+              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
                 <div>
-                  <span className="px-2 py-0.5 bg-sky-100 text-sky-700 font-bold text-[10px] rounded">Impromptu Speaking</span>
-                  <h4 className="font-bold text-sm text-indigo-950 mt-2">How to Improve Impromptu Speaking</h4>
-                  <p className="text-xs text-slate-600 mt-1">Tips berbicara spontan secara terstruktur tanpa persiapan panjang.</p>
+                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-[10px] rounded">Impromptu</span>
+                  <h4 className="font-bold text-sm text-rose-950 mt-2">Impromptu Speaking Tips</h4>
                 </div>
-                <a 
-                  href="https://www.youtube.com/results?search_query=how+to+improve+impromptu+speaking" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                >
+                <a href="https://www.youtube.com/results?search_query=how+to+improve+impromptu+speaking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
                   <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
                 </a>
               </div>
-
             </div>
           </div>
         )}
 
         {/* TAB 5: LEADERBOARD */}
         {activeTab === "leaderboard" && (
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-indigo-100 space-y-4">
-            <h2 className="text-xl font-black text-indigo-950">Leaderboard</h2>
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-4">
+            <h2 className="text-xl font-black text-rose-950">Leaderboard</h2>
             {[
-              { rank: 1, name: "Raka", score: 92, streak: 15 },
-              { rank: 2, name: userName, score: 80, streak: 12 },
-              { rank: 3, name: "Naya", score: 78, streak: 8 },
-              { rank: 4, name: "Ayu", score: 74, streak: 5 },
+              { rank: 1, name: "Raka", score: 92 },
+              { rank: 2, name: userName, score: 80 },
+              { rank: 3, name: "Naya", score: 78 }
             ].map((u) => (
-              <div key={u.rank} className="p-4 bg-white/60 border border-indigo-100 rounded-xl flex justify-between items-center shadow-sm">
-                <span className="font-bold text-sm text-indigo-950">{u.rank}. {u.name}</span>
-                <span className="font-black text-indigo-600">{u.score} XP</span>
+              <div key={u.rank} className="p-4 bg-white/60 border border-pink-200 rounded-xl flex justify-between items-center shadow-sm">
+                <span className="font-bold text-sm text-rose-950">{u.rank}. {u.name}</span>
+                <span className="font-black text-rose-600">{u.score} XP</span>
               </div>
             ))}
           </div>
@@ -775,15 +728,11 @@ export default function SpeakingApp() {
 
         {/* TAB 6: AKUN */}
         {activeTab === "akun" && (
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-indigo-100 max-w-xl mx-auto space-y-4">
-            <h2 className="text-xl font-black text-indigo-950">Pengaturan Akun</h2>
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 max-w-xl mx-auto space-y-4">
+            <h2 className="text-xl font-black text-rose-950">Pengaturan Akun</h2>
             <div>
-              <label className="block text-xs font-bold text-indigo-900 mb-1">Nama Tampilan</label>
-              <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full bg-white border border-indigo-200 rounded-xl p-3 text-xs outline-none font-semibold text-indigo-950 shadow-sm" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setIsPublic(true)} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-sm ${isPublic ? "bg-indigo-600 text-white" : "bg-white/80 text-indigo-900"}`}>Publik</button>
-              <button onClick={() => setIsPublic(false)} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-sm ${!isPublic ? "bg-indigo-600 text-white" : "bg-white/80 text-indigo-900"}`}>Privat</button>
+              <label className="block text-xs font-bold text-rose-900 mb-1">Nama Tampilan</label>
+              <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full bg-white border border-pink-200 rounded-xl p-3 text-xs outline-none font-semibold text-rose-950 shadow-sm" />
             </div>
           </div>
         )}
