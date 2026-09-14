@@ -1,13 +1,53 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  BookOpen, BarChart2, Award, Video, Flame, Swords, 
-  Layers, Lightbulb, Mic, Square, Sparkles, Trophy, User, ExternalLink, AlertTriangle, GitCompare, CheckCircle2, XCircle
+import React, { useState, useEffect, useRef } from "react";
+import {
+  BookOpen,
+  Mic,
+  Award,
+  Video,
+  Flame,
+  Layers,
+  Lightbulb,
+  ThumbsUp,
+  Wrench,
+  Target,
+  Brain,
+  MessageSquare,
+  BarChart2,
+  X,
+  Play,
+  Zap,
+  TrendingUp,
+  CheckCircle2,
+  ShieldAlert,
+  Swords,
+  Volume2,
+  Clock,
+  Sparkles,
+  Activity,
+  Calendar,
+  Compass,
 } from "lucide-react";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
-// --- DATABASE 100 TOPIK ---
+// ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
+  // ==================== PEMULA ====================
   { id: "Q001", level: "Pemula", category: "Education", title: "Guru Inspiratif", question: "Siapa guru yang paling berkesan bagimu dan apa pelajaran berharga yang kamu dapatkan?" },
   { id: "Q002", level: "Pemula", category: "Education", title: "Mata Pelajaran Favorit", question: "Apa pelajaran yang paling kamu sukai di sekolah dan mengapa?" },
   { id: "Q003", level: "Pemula", category: "Education", title: "PR Sekolah", question: "Apakah Pekerjaan Rumah (PR) efektif membantu siswa belajar?" },
@@ -18,6 +58,7 @@ const topicDatabase = [
   { id: "Q008", level: "Pemula", category: "Education", title: "Ekskul Sekolah", question: "Mengapa siswa sebaiknya mengikuti kegiatan ekstrakurikuler?" },
   { id: "Q009", level: "Pemula", category: "Education", title: "Nilai Ujian", question: "Apakah nilai ujian menunjukkan kemampuan siswa yang sebenarnya?" },
   { id: "Q010", level: "Pemula", category: "Education", title: "Belajar dari Kesalahan", question: "Mengapa kesalahan dapat menjadi bagian penting dari proses belajar?" },
+
   { id: "Q011", level: "Pemula", category: "Social", title: "Saling Menghormati", question: "Bagaimana cara menjaga kerukunan di tengah perbedaan pendapat?" },
   { id: "Q012", level: "Pemula", category: "Social", title: "Bergotong Royong", question: "Berikan contoh kegiatan gotong royong di lingkunganmu dan manfaatnya." },
   { id: "Q013", level: "Pemula", category: "Social", title: "Menjadi Teman yang Baik", question: "Menurutmu, apa yang membuat seseorang menjadi teman yang baik?" },
@@ -28,12 +69,14 @@ const topicDatabase = [
   { id: "Q018", level: "Pemula", category: "Social", title: "Kerja Sama", question: "Apa yang membuat kerja sama dalam kelompok menjadi berhasil?" },
   { id: "Q019", level: "Pemula", category: "Social", title: "Menghargai Orang Lain", question: "Bagaimana cara menunjukkan bahwa kita menghargai orang lain?" },
   { id: "Q020", level: "Pemula", category: "Social", title: "Kepedulian", question: "Mengapa kita perlu peduli terhadap lingkungan sekitar?" },
+
   { id: "Q021", level: "Pemula", category: "Daily", title: "Rutinitas Pagi", question: "Bagaimana kebiasaan pagimu memengaruhi suasana hatimu sepanjang hari?" },
   { id: "Q022", level: "Pemula", category: "Daily", title: "Manajemen Waktu", question: "Bagaimana cara membagi waktu antara belajar dan bersantai?" },
   { id: "Q023", level: "Pemula", category: "Daily", title: "Media Sosial", question: "Apa manfaat media sosial bagi kehidupan sehari-hari?" },
   { id: "Q024", level: "Pemula", category: "Daily", title: "Hobi", question: "Mengapa memiliki hobi penting bagi seorang pelajar?" },
   { id: "Q025", level: "Pemula", category: "Daily", title: "Hari Tanpa HP", question: "Apa yang akan kamu lakukan jika harus menjalani satu hari tanpa HP?" },
 
+  // ==================== MENENGAH ====================
   { id: "Q026", level: "Menengah", category: "Education", title: "Tekanan Akademik", question: "Apakah tekanan untuk mendapatkan nilai tinggi dapat meningkatkan motivasi belajar siswa?" },
   { id: "Q027", level: "Menengah", category: "Education", title: "Pendidikan Karakter", question: "Mana yang lebih penting di sekolah, prestasi akademik atau pendidikan karakter?" },
   { id: "Q028", level: "Menengah", category: "Education", title: "Kurikulum Fleksibel", question: "Haruskah siswa diberi lebih banyak kebebasan dalam memilih mata pelajaran?" },
@@ -44,6 +87,7 @@ const topicDatabase = [
   { id: "Q033", level: "Menengah", category: "Education", title: "Sekolah Empat Hari", question: "Apakah sistem sekolah empat hari dalam seminggu dapat meningkatkan kualitas belajar?" },
   { id: "Q034", level: "Menengah", category: "Education", title: "Pendidikan Online", question: "Apakah pembelajaran online dapat memberikan kualitas pendidikan yang sama dengan pembelajaran tatap muka?" },
   { id: "Q035", level: "Menengah", category: "Education", title: "Pendidikan dan Kesuksesan", question: "Seberapa besar pendidikan formal menentukan kesuksesan seseorang?" },
+
   { id: "Q036", level: "Menengah", category: "Social", title: "Cancel Culture", question: "Apakah cancel culture dapat menjadi cara yang efektif untuk meminta pertanggungjawaban seseorang?" },
   { id: "Q037", level: "Menengah", category: "Social", title: "Kebebasan Berpendapat", question: "Apakah kebebasan berpendapat seharusnya memiliki batas?" },
   { id: "Q038", level: "Menengah", category: "Social", title: "Media Sosial dan Relasi", question: "Apakah media sosial membuat manusia lebih dekat atau justru lebih jauh?" },
@@ -54,6 +98,7 @@ const topicDatabase = [
   { id: "Q043", level: "Menengah", category: "Social", title: "Privasi", question: "Seberapa penting privasi seseorang di era media sosial?" },
   { id: "Q044", level: "Menengah", category: "Social", title: "Kesenjangan Sosial", question: "Apa yang dapat dilakukan masyarakat untuk mengurangi kesenjangan sosial?" },
   { id: "Q045", level: "Menengah", category: "Social", title: "Kritik", question: "Apakah kritik selalu membantu seseorang berkembang?" },
+
   { id: "Q046", level: "Menengah", category: "Technology", title: "Ketergantungan Teknologi", question: "Apakah manusia saat ini terlalu bergantung pada teknologi?" },
   { id: "Q047", level: "Menengah", category: "Technology", title: "Media Sosial", question: "Apakah media sosial lebih banyak memberikan manfaat atau masalah bagi remaja?" },
   { id: "Q048", level: "Menengah", category: "Technology", title: "AI dan Pekerjaan", question: "Apakah AI akan menciptakan lebih banyak pekerjaan daripada pekerjaan yang hilang?" },
@@ -65,679 +110,1208 @@ const topicDatabase = [
   { id: "Q054", level: "Menengah", category: "Environment", title: "Kota Hijau", question: "Haruskah pemerintah lebih banyak mengubah lahan perkotaan menjadi ruang hijau?" },
   { id: "Q055", level: "Menengah", category: "Environment", title: "Konsumsi Berlebihan", question: "Apakah masyarakat modern terlalu banyak membeli barang yang sebenarnya tidak dibutuhkan?" },
 
+  // ==================== MAHIR ====================
   { id: "Q056", level: "Mahir", category: "Education", title: "Meritokrasi", question: "Apakah sistem pendidikan benar-benar memberikan kesempatan yang sama kepada semua siswa?" },
   { id: "Q057", level: "Mahir", category: "Education", title: "Makna Kesuksesan", question: "Jika nilai akademik bukan satu-satunya ukuran kemampuan, bagaimana seharusnya sekolah menilai kesuksesan siswa?" },
   { id: "Q058", level: "Mahir", category: "Education", title: "Pendidikan Masa Depan", question: "Keterampilan apa yang paling penting untuk dipersiapkan sekolah menghadapi masa depan?" },
   { id: "Q059", level: "Mahir", category: "Education", title: "Ketimpangan Pendidikan", question: "Apakah teknologi dapat benar-benar mengurangi kesenjangan akses pendidikan?" },
   { id: "Q060", level: "Mahir", category: "Education", title: "AI dan Integritas", question: "Bagaimana sekolah dapat menggunakan AI tanpa mengurangi kejujuran akademik siswa?" },
+
   { id: "Q061", level: "Mahir", category: "Society", title: "Individualisme", question: "Apakah meningkatnya individualisme merupakan tanda kemajuan atau masalah sosial?" },
   { id: "Q062", level: "Mahir", category: "Society", title: "Keadilan Sosial", question: "Apakah masyarakat yang adil berarti semua orang harus mendapatkan hasil yang sama?" },
   { id: "Q063", level: "Mahir", category: "Society", title: "Kebebasan dan Tanggung Jawab", question: "Mengapa kebebasan individu harus diimbangi dengan tanggung jawab sosial?" },
   { id: "Q064", level: "Mahir", category: "Society", title: "Budaya dan Modernisasi", question: "Bagaimana suatu negara dapat mempertahankan budaya tradisional sambil mengikuti perkembangan zaman?" },
   { id: "Q065", level: "Mahir", category: "Society", title: "Generational Gap", question: "Mengapa perbedaan nilai antara generasi muda dan generasi tua sering menimbulkan konflik?" },
+
   { id: "Q066", level: "Mahir", category: "Technology", title: "AI dan Kreativitas", question: "Jika AI dapat menghasilkan karya kreatif, apakah manusia masih menjadi sumber utama kreativitas?" },
   { id: "Q067", level: "Mahir", category: "Technology", title: "Algoritma Media Sosial", question: "Seberapa besar algoritma media sosial memengaruhi cara seseorang berpikir?" },
   { id: "Q068", level: "Mahir", category: "Technology", title: "Digital Divide", question: "Apakah perkembangan teknologi dapat memperbesar kesenjangan antara kelompok masyarakat?" },
   { id: "Q069", level: "Mahir", category: "Technology", title: "Teknologi dan Privasi", question: "Mana yang lebih penting: keamanan digital atau kebebasan privasi?" },
   { id: "Q070", level: "Mahir", category: "Technology", title: "Otomatisasi", question: "Bagaimana masyarakat seharusnya mempersiapkan diri menghadapi meningkatnya otomatisasi pekerjaan?" },
+
   { id: "Q071", level: "Mahir", category: "Environment", title: "Pertumbuhan Ekonomi", question: "Apakah pertumbuhan ekonomi dapat berjalan tanpa meningkatkan kerusakan lingkungan?" },
   { id: "Q072", level: "Mahir", category: "Environment", title: "Krisis Iklim", question: "Siapa yang seharusnya paling bertanggung jawab dalam menangani perubahan iklim: pemerintah, perusahaan, atau individu?" },
   { id: "Q073", level: "Mahir", category: "Environment", title: "Energi Terbarukan", question: "Mengapa transisi menuju energi terbarukan sulit dilakukan meskipun manfaatnya jelas?" },
   { id: "Q074", level: "Mahir", category: "Environment", title: "Konsumsi dan Lingkungan", question: "Apakah perubahan gaya hidup individu cukup untuk mengatasi masalah lingkungan global?" },
   { id: "Q075", level: "Mahir", category: "Environment", title: "Pembangunan Berkelanjutan", question: "Bagaimana negara berkembang dapat meningkatkan ekonomi tanpa mengorbankan lingkungan?" },
+
   { id: "Q076", level: "Mahir", category: "Economy", title: "Kemiskinan", question: "Apakah kemiskinan lebih banyak disebabkan oleh pilihan individu atau sistem sosial?" },
   { id: "Q077", level: "Mahir", category: "Economy", title: "Kesenjangan Pendapatan", question: "Apakah kesenjangan pendapatan yang tinggi selalu menjadi masalah bagi suatu negara?" },
   { id: "Q078", level: "Mahir", category: "Economy", title: "Entrepreneurship", question: "Apakah kewirausahaan sebaiknya diajarkan sejak sekolah?" },
   { id: "Q079", level: "Mahir", category: "Economy", title: "Uang dan Kesuksesan", question: "Apakah pendapatan tinggi merupakan indikator keberhasilan seseorang?" },
   { id: "Q080", level: "Mahir", category: "Economy", title: "Pekerjaan Masa Depan", question: "Apakah generasi muda perlu mengejar pekerjaan yang stabil atau pekerjaan yang sesuai passion?" },
 
+  // ==================== PAKAR ====================
   { id: "Q081", level: "Pakar", category: "Politics", title: "Demokrasi", question: "Apakah demokrasi selalu menjadi sistem pemerintahan terbaik untuk setiap negara?" },
   { id: "Q082", level: "Pakar", category: "Politics", title: "Kebebasan Pers", question: "Sejauh mana kebebasan pers dapat dibatasi demi menjaga stabilitas negara?" },
   { id: "Q083", level: "Pakar", category: "Politics", title: "Populisme", question: "Mengapa politik populisme dapat memperoleh dukungan besar dari masyarakat?" },
   { id: "Q084", level: "Pakar", category: "Politics", title: "Pemimpin Muda", question: "Apakah usia muda menjadi kelebihan atau kekurangan dalam kepemimpinan politik?" },
   { id: "Q085", level: "Pakar", category: "Politics", title: "Kekuasaan", question: "Mengapa kekuasaan dapat mengubah cara seseorang mengambil keputusan?" },
+
   { id: "Q086", level: "Pakar", category: "Global", title: "Globalisasi", question: "Apakah globalisasi mengurangi perbedaan antarnegara atau justru memperbesar kesenjangan?" },
   { id: "Q087", level: "Pakar", category: "Global", title: "Migrasi", question: "Bagaimana negara seharusnya menyeimbangkan kepentingan nasional dengan hak para migran?" },
   { id: "Q088", level: "Pakar", category: "Global", title: "Bantuan Internasional", question: "Apakah bantuan internasional efektif dalam mengurangi kemiskinan jangka panjang?" },
   { id: "Q089", level: "Pakar", category: "Global", title: "Diplomasi", question: "Apakah diplomasi lebih efektif daripada tekanan ekonomi dalam menyelesaikan konflik antarnegara?" },
   { id: "Q090", level: "Pakar", category: "Global", title: "Ketergantungan Negara", question: "Apakah ketergantungan ekonomi antarnegara lebih banyak membawa manfaat atau risiko?" },
+
   { id: "Q091", level: "Pakar", category: "Ethics", title: "Dilema Moral", question: "Apakah keputusan yang menghasilkan manfaat terbesar selalu merupakan keputusan yang paling benar?" },
   { id: "Q092", level: "Pakar", category: "Ethics", title: "Keadilan dan Kesetaraan", question: "Apakah memperlakukan semua orang secara sama selalu berarti bersikap adil?" },
   { id: "Q093", level: "Pakar", category: "Ethics", title: "Tanggung Jawab Individu", question: "Seberapa jauh seseorang harus bertanggung jawab atas dampak dari pilihannya?" },
   { id: "Q094", level: "Pakar", category: "Ethics", title: "Kebenaran", question: "Apakah mengatakan kebenaran selalu lebih baik daripada melindungi perasaan seseorang?" },
   { id: "Q095", level: "Pakar", category: "Ethics", title: "Teknologi dan Moral", question: "Haruskah semua teknologi yang dapat dibuat manusia secara teknis juga boleh digunakan?" },
+
   { id: "Q096", level: "Pakar", category: "Technology", title: "AI dan Hukum", question: "Siapa yang seharusnya bertanggung jawab secara hukum ketika sistem AI membuat keputusan yang merugikan seseorang?" },
   { id: "Q097", level: "Pakar", category: "Technology", title: "AI dan Manusia", question: "Apakah manusia seharusnya memberikan batas terhadap kemampuan AI meskipun teknologi tersebut dapat meningkatkan kehidupan manusia?" },
   { id: "Q098", level: "Pakar", category: "Environment", title: "Keadilan Iklim", question: "Apakah negara maju memiliki tanggung jawab yang lebih besar dalam mengatasi perubahan iklim?" },
   { id: "Q099", level: "Pakar", category: "Economy", title: "Ekonomi Global", question: "Bagaimana dunia dapat mengurangi kesenjangan ekonomi tanpa menghambat pertumbuhan ekonomi?" },
-  { id: "Q100", level: "Pakar", category: "Global", title: "Masa Depan Dunia", question: "Menurutmu, apa tantangan terbesar yang akan dihadapi generasi muda di masa depan?" }
+  { id: "Q100", level: "Pakar", category: "Global", title: "Masa Depan Dunia", question: "Menurutmu, apa tantangan terbesar yang akan dihadapi generasi muda dalam 20 tahun ke depan?" }
 ];
 
-const initialHistory = [
-  {
-    id: "H1",
-    title: "AI di Sekolah (Q031)",
-    date: "14 Sep 2026",
-    transcript: "euh... iya menurut saya itu bagus.",
-    publicScores: { kejelasanIsi: 1, kefasihanVokal: 1, diksi: 1, intonasiPacing: 1, kepercayaanDiri: 1 },
-    criticalScores: { analisis: 1, evaluasi: 1, inferensi: 1, eksplanasi: 1, regulasiDiri: 1 },
-    totalScore: 20,
-    wpm: 30,
-    fillers: ["euh"],
-    aiReason: "Peserta hanya menyebutkan satu kata awal tanpa pengembangan argumen yang memadai.",
-    feedback: "Tingkatkan durasi berbicara dan jelaskan alasan di balik pendapat Anda.",
-    toPractice: "Latihan menyusun argumen 3 bagian (Premis, Alasan, Kesimpulan).",
-    goodPoints: null,
-    badPoints: "Terlalu sedikit kata yang diucapkan dan banyak jeda filler."
-  },
-  {
-    id: "H2",
-    title: "Guru Inspiratif (Q001)",
-    date: "14 Sep 2026",
-    transcript: "guru paling berkesan bagi saya adalah guru matematika saya karena beliau mengajarkan logika berpikir bukan sekadar menghafal rumus.",
-    publicScores: { kejelasanIsi: 5, kefasihanVokal: 4, diksi: 5, intonasiPacing: 4, kepercayaanDiri: 5 },
-    criticalScores: { analisis: 5, evaluasi: 4, inferensi: 5, eksplanasi: 4, regulasiDiri: 5 },
-    totalScore: 92,
-    wpm: 110,
-    fillers: [],
-    aiReason: "Penyampaian sangat terstruktur, menggunakan contoh personal yang kuat, serta minim kesalahan.",
-    feedback: "Pertahankan intonasi dan ketegasan artikulasi yang sudah sangat baik.",
-    toPractice: "Eksplorasi sanggahan tingkat lanjut untuk mempertajam debat.",
-    goodPoints: "Artikulasi jelas, struktur argumen runut, dan diksi sangat tepat.",
-    badPoints: null
-  }
-];
+export default function PublicSpeakingApp() {
+  const [activeTab, setActiveTab] = useState<"latihan" | "rapor" | "riwayat" | "video" | "leaderboard">("latihan");
+  const [currentTopic, setCurrentTopic] = useState(topicDatabase[0]);
+  const [filterLevel, setFilterLevel] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  
+  const [isRecording, setIsRecording] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(120);
+  const [transcript, setTranscript] = useState("");
+  const [rubricTab, setRubricTab] = useState<"ct" | "ps">("ct");
+  
+  const [showHintModal, setShowHintModal] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-export default function SpeakingApp() {
-  const [activeTab, setActiveTab] = useState("latihan");
+  const [history, setHistory] = useState<any[]>([]);
+  const [streak, setStreak] = useState(1);
+  const [lastPracticeDate, setLastPracticeDate] = useState<string | null>(null);
+// --- State & Data untuk Akun & Leaderboard ---
+  const [userAccount, setUserAccount] = useState({
+    name: "Pengguna Baru",
+    isPublic: true,
+    totalPractices: 6,
+    streak: 3,
+    avgOverallScore: 84,
+    avgCtScore: 4.1,
+    avgPsScore: 4.2
+  });
 
-  const [userName, setUserName] = useState("Aisyah");
-  const [isPublic, setIsPublic] = useState(true);
+  const [leaderboardTab, setLeaderboardTab] = useState("overall");
 
+  const mockLeaderboard = {
+    overall: [
+      { rank: 1, name: "Aisyah", score: 92, practices: 47, streak: 12 },
+      { rank: 2, name: "Raka", score: 89, practices: 51, streak: 15 },
+      { rank: 3, name: "Naya", score: 87, practices: 38, streak: 8 },
+      { rank: 4, name: "Ayu", score: 82, practices: 31, streak: 5 },
+    ],
+    consistent: [
+      { rank: 1, name: "Raka", score: "15 Hari Streak", practices: 51, streak: 15 },
+      { rank: 2, name: "Aisyah", score: "12 Hari Streak", practices: 47, streak: 12 },
+      { rank: 3, name: "Naya", score: "8 Hari Streak", practices: 38, streak: 8 },
+    ]
+  };
+  // GAMIFIKASI: XP & LEVEL & BADGES & QUESTS
+  const [userXp, setUserXp] = useState(120);
+  const [targetScore, setTargetScore] = useState(80);
   const [isSparringMode, setIsSparringMode] = useState(false);
   const [sparringOpini, setSparringOpini] = useState("");
-  const [filterLevel, setFilterLevel] = useState("Menengah");
-  const [currentTopic, setCurrentTopic] = useState(topicDatabase[25]);
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [evaluationResult, setEvaluationResult] = useState<any>(null);
-  const [activeEvalTab, setActiveEvalTab] = useState<"critical" | "public">("critical");
+  // COMPARISON SIDE BY SIDE STATE
+  const [compareId1, setCompareId1] = useState<number | null>(null);
+  const [compareId2, setCompareId2] = useState<number | null>(null);
 
-  const [historyList, setHistoryList] = useState(initialHistory);
-  const [selectedHistory1, setSelectedHistory1] = useState(initialHistory[0].id);
-  const [selectedHistory2, setSelectedHistory2] = useState(initialHistory[1].id);
+  // LIVE ASSISTANT REALTIME METRICS
+  const [liveFillers, setLiveFillers] = useState(0);
+  const [livePaceStatus, setLivePaceStatus] = useState<"Ideal" | "Terlalu Cepat" | "Terlalu Lambat">("Ideal");
+  const [liveWpm, setLiveWpm] = useState(0);
 
-  const toggleSparringMode = () => {
-    setIsSparringMode(!isSparringMode);
-    if (!isSparringMode) {
-      setSparringOpini("Sebagian besar argumen mengabaikan faktor efisiensi jangka pendek yang justru sangat dibutuhkan saat ini.");
-    } else {
-      setSparringOpini("");
+  const [evaluation, setEvaluation] = useState<any>({
+    overall: "--",
+    ctScores: [1, 1, 1, 1, 1],
+    psScores: [1, 1, 1, 1, 1],
+    goodText: "Lakukan latihan untuk memulai evaluasi otomatis dari AI.",
+    improveText: "-",
+    recommendText: "--",
+    wpm: 0,
+    fillerWordsDetected: []
+  });
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // LOAD DATA & CEK STREAK
+  useEffect(() => {
+    const savedData = localStorage.getItem("oddmind_app_data");
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.history) setHistory(parsed.history);
+        if (parsed.lastPracticeDate) setLastPracticeDate(parsed.lastPracticeDate);
+        if (parsed.userXp) setUserXp(parsed.userXp);
+        if (parsed.targetScore) setTargetScore(parsed.targetScore);
+
+        const today = new Date().toISOString().split("T")[0];
+        const lastDate = parsed.lastPracticeDate;
+
+        if (lastDate) {
+          const diffDays = Math.floor(
+            (new Date(today).getTime() - new Date(lastDate).getTime()) / (1000 * 3600 * 24)
+          );
+
+          if (diffDays === 1 || diffDays === 0) {
+            setStreak(parsed.streak || 1);
+          } else {
+            setStreak(1);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
+  }, []);
+
+  const saveToStorage = (newHistory: any[], newStreak: number, dateStr: string, xp: number) => {
+    localStorage.setItem(
+      "oddmind_app_data",
+      JSON.stringify({
+        history: newHistory,
+        streak: newStreak,
+        lastPracticeDate: dateStr,
+        userXp: xp,
+        targetScore
+      })
+    );
   };
 
   const getNewCard = () => {
-    const filtered = topicDatabase.filter(t => t.level === filterLevel);
-    if (filtered.length > 0) {
-      const randomTopic = filtered[Math.floor(Math.random() * filtered.length)];
-      setCurrentTopic(randomTopic);
+    const filtered = topicDatabase.filter(t => {
+      const matchLvl = filterLevel === "all" || t.level === filterLevel;
+      const matchCat = filterCategory === "all" || t.category === filterCategory;
+      return matchLvl && matchCat;
+    });
+
+    if (filtered.length === 0) {
+      alert("Tidak ada kartu yang cocok dengan kombinasi filter ini.");
+      return;
     }
-    setTranscript("");
-    setEvaluationResult(null);
+    const random = filtered[Math.floor(Math.random() * filtered.length)];
+    setCurrentTopic(random);
+
+    if (isSparringMode) {
+      generateSparringOpini(random.title);
+    }
   };
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setTranscript("");
-    setEvaluationResult(null);
+  const toggleSparringMode = () => {
+    const nextState = !isSparringMode;
+    setIsSparringMode(nextState);
+    if (nextState) {
+      generateSparringOpini(currentTopic.title);
+    }
   };
 
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    // Mensimulasikan kondisi ketika pengguna baru bicara sedikit / satu kata (misal: "euh...")
-    const simulatedText = "euh... menurut saya itu kurang tepat.";
-    setTranscript(simulatedText);
-
-    // Deteksi filler sederhana
-    const detectedFillers = ["euh", "eh", "anu", "hmm"].filter(f => simulatedText.toLowerCase().includes(f));
-    const wordCount = simulatedText.split(" ").length;
-
-    let evalData;
-    if (wordCount <= 5) {
-      // Skor minimum jika baru bicara sedikit / satu kata
-      evalData = {
-        publicScores: { kejelasanIsi: 1, kefasihanVokal: 1, diksi: 1, intonasiPacing: 1, kepercayaanDiri: 1 },
-        criticalScores: { analisis: 1, evaluasi: 1, inferensi: 1, eksplanasi: 1, regulasiDiri: 1 },
-        totalScore: 20,
-        wpm: 25,
-        fillers: detectedFillers,
-        aiReason: "Rekaman dihentikan saat awal atau hanya berisi sedikit kata, sehingga tidak memenuhi standar kedalaman argumen.",
-        feedback: "Cobalah untuk berbicara minimal 30-60 detik dan kembangkan alasan Anda secara utuh.",
-        toPractice: "Latihan merangkai opini lengkap tanpa terhenti di awal.",
-        goodPoints: null,
-        badPoints: "Durasi terlalu singkat, isi kalimat belum lengkap, dan terdapat kata filler."
-      };
-    } else {
-      evalData = {
-        publicScores: { kejelasanIsi: 4, kefasihanVokal: 4, diksi: 4, intonasiPacing: 4, kepercayaanDiri: 4 },
-        criticalScores: { analisis: 4, evaluasi: 4, inferensi: 4, eksplanasi: 4, regulasiDiri: 4 },
-        totalScore: 80,
-        wpm: 72,
-        fillers: detectedFillers,
-        aiReason: "Argumen disampaikan dengan struktur cukup baik namun masih memerlukan variasi bukti empiris.",
-        feedback: "Perkaya argumen dengan data atau contoh konkret di tengah kalimat.",
-        toPractice: "Latihan teknik elaborasi data dan fakta.",
-        goodPoints: "Penyampaian cukup tenang dan artikulasi jelas.",
-        badPoints: "Kurang adanya pendukung data statistik yang kuat."
-      };
-    }
-
-    setEvaluationResult(evalData);
-
-    const newHistoryItem = {
-      id: "H" + (historyList.length + 1),
-      title: currentTopic.title + " (" + currentTopic.id + ")",
-      date: "Baru saja",
-      transcript: simulatedText,
-      publicScores: evalData.publicScores,
-      criticalScores: evalData.criticalScores,
-      totalScore: evalData.totalScore,
-      wpm: evalData.wpm,
-      fillers: evalData.fillers,
-      aiReason: evalData.aiReason,
-      feedback: evalData.feedback,
-      toPractice: evalData.toPractice,
-      goodPoints: evalData.goodPoints,
-      badPoints: evalData.badPoints
+  const generateSparringOpini = (topicTitle: string) => {
+    const opinions: Record<string, string> = {
+      "AI di Sekolah": "Menurut AI, penggunaan ChatGPT harus dilarang total di sekolah karena membuat siswa malas berpikir dan menghancurkan daya kritis.",
+      "PR Sekolah": "Menurut AI, PR sekolah harus dihapuskan 100% karena hanya memberikan stres tanpa bukti efektivitas nyata.",
     };
-    setHistoryList([newHistoryItem, ...historyList]);
+    setSparringOpini(opinions[topicTitle] || `Menurut AI, topik '${topicTitle}' harus disetujui tanpa keraguan demi efisiensi masa depan.`);
   };
 
-  const item1 = historyList.find(h => h.id === selectedHistory1) || historyList[0];
-  const item2 = historyList.find(h => h.id === selectedHistory2) || historyList[1] || historyList[0];
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const startRecording = () => {
+    setIsRecording(true);
+    setTimeLeft(isSparringMode ? 60 : 120);
+    setTranscript("");
+    setLiveFillers(0);
+    setLiveWpm(0);
+
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = "id-ID";
+
+      recognitionRef.current.onresult = (event: any) => {
+        let currentText = "";
+        for (let i = 0; i < event.results.length; i++) {
+          currentText += event.results[i][0].transcript;
+        }
+        setTranscript(currentText);
+        analyzeLiveMetrics(currentText);
+      };
+
+      try { recognitionRef.current.start(); } catch (e) {}
+    }
+
+    const totalSeconds = isSparringMode ? 60 : 120;
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          stopRecording();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const analyzeLiveMetrics = (text: string) => {
+    const cleanText = text.toLowerCase();
+    const words = cleanText.split(/\s+/).filter(w => w.length > 0);
+    const wordCount = words.length;
+
+    const fillerPhrases = ["nggak bisa", "gak bisa", "bingung", "anu", "kayak", "mungkin", "ee", "hmm", "enggak tahu"];
+    let count = 0;
+    fillerPhrases.forEach(p => {
+      const matches = cleanText.match(new RegExp(p, "g"));
+      if (matches) count += matches.length;
+    });
+    setLiveFillers(count);
+
+    const elapsedMinutes = (isSparringMode ? (60 - timeLeft) : (120 - timeLeft)) / 60;
+    if (elapsedMinutes > 0.05) {
+      const currentWpm = Math.round(wordCount / elapsedMinutes);
+      setLiveWpm(currentWpm);
+
+      if (currentWpm > 160) setLivePaceStatus("Terlalu Cepat");
+      else if (currentWpm < 80) setLivePaceStatus("Terlalu Lambat");
+      else setLivePaceStatus("Ideal");
+    }
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+
+    evaluateTranscript(transcript);
+  };
+
+  const evaluateTranscript = (text: string) => {
+    const rawText = text.trim();
+    const cleanText = rawText.toLowerCase();
+    const words = cleanText.split(/\s+/).filter((w) => w.length > 0);
+    const wordCount = words.length;
+
+    const fillerPhrases = [
+      "nggak bisa", "gak bisa", "enggak bisa", "tidak bisa",
+      "nggak tahu", "gak tahu", "enggak tahu", "tidak tahu",
+      "bingung", "gimana dong", "sumpah", "entah", "pas", "agak susah", "kayak", "anu", "mungkin"
+    ];
+
+    let fillerCount = 0;
+    const detectedFillers: string[] = [];
+    fillerPhrases.forEach((phrase) => {
+      const regex = new RegExp(phrase, "g");
+      const matches = cleanText.match(regex);
+      if (matches) {
+        fillerCount += matches.length;
+        detectedFillers.push(phrase);
+      }
+    });
+
+    const elapsedMinutes = (isSparringMode ? (60 - timeLeft) : (120 - timeLeft)) / 60 || 1;
+    const finalWpm = Math.round(wordCount / elapsedMinutes);
+
+    let ct = [1, 1, 1, 1, 1]; 
+    let ps = [1, 1, 1, 1, 1]; 
+    let goodText = "";
+    let improveText = "";
+    let recommendText = "";
+
+    if (wordCount < 10 || fillerCount >= 3 || cleanText.length === 0) {
+      ct = [1, 1, 1, 1, 1];
+      ps = [1, 2, 1, 2, 1];
+      goodText = "Anda sudah berani mencoba menekan tombol rekam suara.";
+      improveText = "Jawaban belum masuk ke topik. Hindari kata-kata panik seperti 'nggak bisa/nggak tahu' dan usahakan susun 1 kalimat pendapat argumen.";
+      recommendText = "Pelajari modul 'Dasar Menyusun Pendapat Pertama' di Video Hub.";
+    } else if (wordCount >= 10 && wordCount < 30) {
+      if (fillerCount === 1 || fillerCount === 2) {
+        ct = [2, 2, 2, 2, 2];
+        ps = [2, 3, 2, 3, 2];
+        goodText = "Sudah mulai menyampaikan beberapa ide dasar.";
+        improveText = "Masih terdeteksi keraguan. Kurangi kata filler/panik dan perjelas alasan utama Anda.";
+        recommendText = "Latihan modul 'Membangun Argumentasi Logis' di Video Hub.";
+      } else {
+        ct = [3, 3, 3, 3, 3];
+        ps = [3, 3, 3, 3, 3];
+        goodText = "Penyampaian cukup jelas walau masih bisa diperdalam lagi.";
+        improveText = "Tambahkan contoh nyata atau data pendukung agar argumen lebih berbobot.";
+        recommendText = "Latihan modul 'Teknik Storytelling & Contoh Konkret' di Video Hub.";
+      }
+    } else {
+      ct = [4, 4, 4, 4, 4];
+      ps = [4, 4, 4, 4, 4];
+      goodText = "Struktur ucapan sangat teratur, artikulasi baik, dan argumen tersampaikan dengan jelas.";
+      improveText = "Tingkatkan variasi intonasi vokal agar lebih persuasif di depan audiens.";
+      recommendText = "Latihan modul 'Public Speaking Masterclass' di Video Hub.";
+    }
+
+    const avgCT = ct.reduce((a, b) => a + b, 0) / 5;
+    const avgPS = ps.reduce((a, b) => a + b, 0) / 5;
+    const overall = Math.round(((avgCT + avgPS) / 10) * 100);
+
+    const newEval = {
+      overall,
+      ctScores: ct,
+      psScores: ps,
+      goodText,
+      improveText,
+      recommendText,
+      wpm: finalWpm,
+      fillerWordsDetected: Array.from(new Set(detectedFillers))
+    };
+
+    setEvaluation(newEval);
+
+    // GAMIFIKASI: HITUNG XP BARU (+50 XP Tiap latihan + Bonus Nilai)
+    const gainedXp = 50 + Math.round(overall / 2);
+    const newXpTotal = userXp + gainedXp;
+    setUserXp(newXpTotal);
+
+    // MANAJEMEN STREAK PER HARI
+    const today = new Date().toISOString().split("T")[0];
+    let newStreak = streak;
+
+    if (lastPracticeDate !== today) {
+      if (lastPracticeDate) {
+        const diffDays = Math.floor(
+          (new Date(today).getTime() - new Date(lastPracticeDate).getTime()) / (1000 * 3600 * 24)
+        );
+        newStreak = diffDays === 1 ? streak + 1 : 1;
+      } else {
+        newStreak = 1;
+      }
+      setStreak(newStreak);
+      setLastPracticeDate(today);
+    }
+
+    const newHistory = [
+      {
+        id: Date.now(),
+        date: new Date().toLocaleDateString("id-ID"),
+        topic: currentTopic.title,
+        level: currentTopic.level,
+        overall,
+        ctScores: ct,
+        psScores: ps,
+        transcript: rawText || "(Tidak ada ucapan terdeteksi)",
+        wpm: finalWpm,
+        fillers: fillerCount
+      },
+      ...history,
+    ];
+
+    setHistory(newHistory);
+    saveToStorage(newHistory, newStreak, today, newXpTotal);
+  };
+
+  const wordCount = transcript.trim().split(/\s+/).filter((w) => w.length > 0).length;
+
+  // METRIK DAN DATA STATISTIK UNTUK RAPOR
+  const totalRecordings = history.length;
+  
+  const avgOverall = totalRecordings > 0
+    ? Math.round(history.reduce((acc, curr) => acc + curr.overall, 0) / totalRecordings)
+    : evaluation.overall !== "--" ? evaluation.overall : 0;
+
+  const avgCTScore = totalRecordings > 0
+    ? Math.round((history.reduce((acc, curr) => acc + (curr.ctScores ? curr.ctScores.reduce((a:number,b:number)=>a+b,0)/5 : 0), 0) / totalRecordings) * 20)
+    : 0;
+
+  // GAMIFIKASI CALCULATIONS (LEVEL & LEVEL NAME)
+  const currentLevelNum = Math.floor(userXp / 200) + 1;
+  const getLevelName = (lvl: number) => {
+    if (lvl < 3) return "Novice Debater";
+    if (lvl < 6) return "Logical Thinker";
+    if (lvl < 10) return "Master Persuader";
+    return "Public Speaking Titan";
+  };
+
+  // TARGET TRACKER PROGRESS (%)
+  const targetProgressPercent = Math.min(100, Math.round((avgOverall / targetScore) * 100));
+
+  // TREN HARIAN UNTUK LINE CHART
+  const trendData = history.slice(0, 7).reverse().map((item, i) => ({
+    name: `Sesi ${i + 1}`,
+    Skor: item.overall,
+    WPM: item.wpm || 100,
+  }));
+
+  // RADAR CHART (5 AKSIS PENTAGON)
+  const ctLabels = ["Analisis", "Evaluasi", "Inferensi", "Eksplanasi", "Regulasi Diri"];
+  const psLabels = ["Kejelasan Isi", "Kefasihan & Vokal", "Diksi", "Intonasi & Pacing", "Kepercayaan Diri"];
+
+  const radarData = ctLabels.map((label, idx) => {
+    const ctVal = totalRecordings > 0
+      ? Math.round(history.reduce((acc, curr) => acc + (curr.ctScores ? curr.ctScores[idx] : 1), 0) / totalRecordings * 20)
+      : evaluation.ctScores[idx] * 20;
+
+    const psVal = totalRecordings > 0
+      ? Math.round(history.reduce((acc, curr) => acc + (curr.psScores ? curr.psScores[idx] : 1), 0) / totalRecordings * 20)
+      : evaluation.psScores[idx] * 20;
+
+    return {
+      subject: label,
+      CT: ctVal,
+      PS: psVal,
+      fullMark: 100,
+    };
+  });
+
+  // RECORDED AUDIOS FOR BEFORE VS AFTER COMPARISON
+  const selectedCompare1 = history.find(h => h.id === compareId1);
+  const selectedCompare2 = history.find(h => h.id === compareId2);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-100 to-rose-100 p-4 md:p-8 text-slate-800 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-purple-100 to-indigo-100 text-slate-800 p-4 md:p-8 font-sans">
       
-      {/* HEADER & BRANDING */}
-      <div className="max-w-6xl mx-auto text-center mb-6">
-        <span className="px-3 py-1 bg-white/70 text-rose-900 font-bold text-xs rounded-full uppercase tracking-wider backdrop-blur-sm shadow-sm border border-pink-200">
-          100+ Critical Thinking & AI Public Speaking Coach
-        </span>
-        <h1 className="text-4xl font-black text-rose-950 mt-2">OddMind</h1>
-        <p className="text-xs text-rose-800 mt-1 font-semibold">Train Your Mind, Shape Your Future</p>
+      {/* HEADER */}
+      <div className="max-w-7xl mx-auto text-center mb-8">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-200/60 text-purple-800 text-xs font-semibold mb-3">
+          MEDIA PEMBELAJARAN SOFT SKILL & AI PUBLIC SPEAKING COACH
+        </div>
+        <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-cyan-600">
+          OddMind
+        </h1>
+        <p className="text-slate-600 text-sm mt-1 font-medium">Train Your Mind, Shape Your Future</p>
 
-        {/* STATUS BAR */}
-        <div className="inline-flex items-center gap-4 bg-white/80 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-pink-200 mt-4">
-          <div className="flex items-center gap-1.5 text-rose-600 font-bold text-xs">
-            <Flame className="w-4 h-4" /> 1 Hari Streak
+        {/* GAMIFICATION STATS BAR (LEVEL, XP, STREAK) */}
+        <div className="flex flex-wrap justify-center items-center gap-4 mt-4 bg-white/60 backdrop-blur-md max-w-2xl mx-auto p-3 rounded-2xl border border-white shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-xl text-xs font-extrabold">
+            <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>{streak} Hari Streak</span>
           </div>
-          <div className="w-px h-4 bg-pink-200"></div>
-          <div className="flex items-center gap-1.5 text-pink-700 font-bold text-xs">
-            <Sparkles className="w-4 h-4" /> Level 3: Logical Thinker
+
+          <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-xl text-xs font-extrabold">
+            <Zap className="w-4 h-4 text-purple-600 fill-purple-600" />
+            <span>Level {currentLevelNum}: {getLevelName(currentLevelNum)}</span>
           </div>
-          <div className="w-px h-4 bg-pink-200"></div>
-          <div className="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
-            <Award className="w-4 h-4" /> 538 XP (100 Topik Aktif)
+
+          <div className="flex items-center gap-2 px-3 py-1 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-extrabold">
+            <Award className="w-4 h-4 text-cyan-600" />
+            <span>{userXp} XP</span>
           </div>
+        </div>
+
+        {/* NAV TABS */}
+        <div className="flex flex-wrap justify-center gap-3 mt-6">
+          <button
+            onClick={() => setActiveTab("latihan")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+              activeTab === "latihan" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
+            }`}
+          >
+            <BookOpen className="w-4 h-4" /> Latihan Speaking
+          </button>
+          <button
+            onClick={() => setActiveTab("rapor")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+              activeTab === "rapor" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" /> Rapor Perkembangan
+          </button>
+          <button
+            onClick={() => setActiveTab("riwayat")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+              activeTab === "riwayat" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
+            }`}
+          >
+            <Award className="w-4 h-4" /> Riwayat & Komparasi
+          </button>
+          <button
+            onClick={() => setActiveTab("video")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+              activeTab === "video" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
+            }`}
+          >
+            <Video className="w-4 h-4" /> Video Learning Hub
+          </button>
         </div>
       </div>
 
-      {/* NAVIGATION TABS */}
-      <div className="max-w-6xl mx-auto flex flex-wrap justify-center gap-2 mb-8">
-        {[
-          { id: "latihan", label: "Latihan Speaking", icon: BookOpen },
-          { id: "rapor", label: "Rapor & Grafik", icon: BarChart2 },
-          { id: "riwayat", label: "Riwayat & Perbandingan", icon: GitCompare },
-          { id: "video", label: "Video Learning Hub", icon: Video },
-          { id: "leaderboard", label: "Leaderboard", icon: Trophy },
-          { id: "akun", label: "Pengaturan Akun", icon: User },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-                isActive 
-                  ? "bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-500/25" 
-                  : "bg-white/70 text-rose-950 hover:bg-white/90 backdrop-blur-sm border border-pink-200"
-              }`}
-            >
-              <Icon className="w-4 h-4" /> {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* KONTEN UTAMA */}
-      <div className="max-w-6xl mx-auto">
+      {/* MAIN CONTENT CONTAINER */}
+      <div className="max-w-7xl mx-auto">
         
         {/* TAB 1: LATIHAN SPEAKING */}
         {activeTab === "latihan" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            {/* KIRI */}
+            {/* LEFT COLUMN */}
             <div className="lg:col-span-6 space-y-6">
-              
-              {/* Challenge Card */}
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-5 border-l-4 border-rose-500 shadow-sm border border-pink-200">
+
+              {/* CHALLENGE & MODE SPARRING AI */}
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border-l-4 border-amber-500 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="px-3 py-1 bg-rose-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5" /> CRITICAL CHALLENGE
+                  <span className="px-3 py-1 bg-amber-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5" /> TODAY'S CHALLENGE
                   </span>
                   <div className="flex gap-2">
                     <button 
                       onClick={toggleSparringMode} 
-                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 ${
-                        isSparringMode ? "bg-rose-700 text-white" : "bg-pink-50 text-rose-700"
+                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all ${
+                        isSparringMode ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
                       }`}
                     >
-                      <Swords className="w-3.5 h-3.5" /> {isSparringMode ? "Sparring ON" : "Debat AI"}
+                      <Swords className="w-3.5 h-3.5" /> {isSparringMode ? "Mode Sparring Active" : "Mode Debat AI"}
                     </button>
-                    <button onClick={getNewCard} className="px-3 py-1 bg-rose-500 text-white font-bold text-xs rounded-lg">Acak</button>
+                    <button onClick={() => setCurrentTopic(topicDatabase[30])} className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg">
+                      Ambil
+                    </button>
                   </div>
                 </div>
 
                 {isSparringMode ? (
-                  <div className="mt-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-rose-800">SANGGAHAN KRITIS AI:</h4>
-                    <p className="text-xs font-medium text-rose-900 italic mt-1">"{sparringOpini}"</p>
+                  <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                    <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-1">
+                      <Swords className="w-4 h-4" /> OPINI SANGGAHAN AI (Waktu Sanggah: 1 Menit)
+                    </h4>
+                    <p className="text-sm font-semibold text-rose-900 italic">"{sparringOpini || "Sanggah pendapat AI ini!"}"</p>
                   </div>
                 ) : (
                   <>
-                    <h3 className="font-bold text-rose-950 text-sm mt-1">{currentTopic.title}</h3>
-                    <p className="text-slate-700 text-xs mt-0.5">{currentTopic.question}</p>
+                    <h3 className="font-bold text-slate-800 text-base mt-2">AI di Sekolah</h3>
+                    <p className="text-slate-600 text-sm mt-0.5">Haruskah kecerdasan buatan seperti ChatGPT diizinkan dalam pengerjaan tugas?</p>
                   </>
                 )}
               </div>
 
-              {/* Card Topik Utama */}
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
+              {/* QUESTION CARD */}
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-pink-100 text-rose-800 font-semibold text-xs rounded-full">{currentTopic.level}</span>
-                    <span className="px-3 py-1 bg-rose-100 text-rose-800 font-semibold text-xs rounded-full">{currentTopic.category}</span>
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-full">{currentTopic.level}</span>
+                    <span className="px-3 py-1 bg-cyan-100 text-cyan-700 font-semibold text-xs rounded-full">{currentTopic.category}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-rose-600">{currentTopic.id}</span>
+                  <span className="text-xs font-mono font-bold text-slate-400">{currentTopic.id}</span>
                 </div>
 
-                <div className="text-center py-4">
-                  <h2 className="text-xl font-extrabold text-rose-950 mb-2">{currentTopic.title}</h2>
-                  <p className="text-slate-700 text-sm leading-relaxed">{currentTopic.question}</p>
+                <div className="text-center py-6">
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">{currentTopic.title}</h2>
+                  <p className="text-slate-600 text-base leading-relaxed">{currentTopic.question}</p>
                 </div>
 
-                {/* Filter Level */}
-                <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-pink-200">
+                <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-slate-100">
                   <div>
-                    <label className="block text-xs font-bold text-rose-900 mb-1">Pilih Level Topik</label>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Filter Level</label>
                     <select
                       value={filterLevel}
                       onChange={(e) => setFilterLevel(e.target.value)}
-                      className="w-full bg-white/90 border border-pink-200 text-rose-950 text-xs rounded-xl p-2.5 outline-none font-bold shadow-sm"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl p-2.5 outline-none"
                     >
-                      <option value="Pemula">Pemula (Q001-Q025)</option>
-                      <option value="Menengah">Menengah (Q026-Q055)</option>
-                      <option value="Mahir">Mahir (Q056-Q080)</option>
-                      <option value="Pakar">Pakar (Q081-Q100)</option>
+                      <option value="all">Semua Level</option>
+                      <option value="Pemula">Pemula</option>
+                      <option value="Menengah">Menengah</option>
+                      <option value="Mahir">Mahir</option>
+                      <option value="Pakar">Pakar</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-rose-900 mb-1">Aksi Kartu</label>
-                    <button onClick={getNewCard} className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
-                      <Layers className="w-3.5 h-3.5" /> Ambil Kartu Baru
-                    </button>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Filter Kategori</label>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl p-2.5 outline-none"
+                    >
+                      <option value="all">Semua Kategori</option>
+                      <option value="Education">Education</option>
+                      <option value="Social">Social</option>
+                      <option value="Daily">Daily</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Environment">Environment</option>
+                      <option value="Society">Society</option>
+                      <option value="Economy">Economy</option>
+                      <option value="Politics">Politics</option>
+                      <option value="Global">Global</option>
+                      <option value="Ethics">Ethics</option>
+                    </select>
                   </div>
                 </div>
-              </div>
 
-              {/* Perekaman */}
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 text-center shadow-sm border border-pink-200">
-                <p className="text-xs font-bold text-rose-600 mb-1">BATAS WAKTU: 2 MENIT</p>
-                <div className="text-3xl font-mono font-black text-rose-950 mb-4">02:00</div>
-                {!isRecording ? (
-                  <button onClick={handleStartRecording} className="w-full py-3.5 bg-gradient-to-r from-rose-600 to-pink-500 hover:opacity-95 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2">
-                    <Mic className="w-4 h-4" /> Mulai Rekam Argumen Kritis
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={getNewCard} className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2">
+                    <Layers className="w-4 h-4" /> Ambil Kartu Baru
                   </button>
-                ) : (
-                  <button onClick={handleStopRecording} className="w-full py-3.5 bg-slate-900 text-white font-extrabold rounded-2xl animate-pulse flex items-center justify-center gap-2">
-                    <Square className="w-4 h-4 fill-current" /> Selesai & Analisis AI
+                  <button onClick={() => setShowHintModal(true)} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2">
+                    <Lightbulb className="w-4 h-4" /> Hint Clue
                   </button>
-                )}
-              </div>
-
-              {/* Transkrip */}
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
-                <h3 className="text-xs font-black text-rose-900 tracking-wider mb-2">TRANSKRIP ARGUMEN</h3>
-                <div className="p-3 bg-white/60 rounded-xl min-h-[70px] border border-pink-100 flex items-center">
-                  <p className="text-xs italic text-rose-950">{transcript || "Rekam argumen Anda untuk dianalisis..."}</p>
                 </div>
               </div>
+
+              {/* RECORDING AREA + LIVE ASSISTANT OVERLAY */}
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 text-center shadow-sm border border-white relative overflow-hidden">
+                
+                {/* LIVE ASSISTANT OVERLAY REALTIME */}
+                {isRecording && (
+                  <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-slate-900 text-white rounded-xl text-xs font-semibold animate-pulse">
+                    <div className="flex items-center justify-center gap-1 text-amber-400">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Filler: {liveFillers}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-cyan-400">
+                      <Activity className="w-4 h-4" />
+                      <span>Pace: {livePaceStatus}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-emerald-400">
+                      <Clock className="w-4 h-4" />
+                      <span>{liveWpm} WPM</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">
+                  BATAS WAKTU: {isSparringMode ? "1 MENIT (SPARRING)" : "2 MENIT"}
+                </div>
+                <div className="text-4xl font-black text-slate-800 font-mono my-2">
+                  {Math.floor(timeLeft / 60).toString().padStart(2, "0")}:{(timeLeft % 60).toString().padStart(2, "0")}
+                </div>
+                <p className="text-xs font-semibold text-slate-500 mb-4">{isRecording ? "🔴 Merekam ucapan..." : "Siap untuk merekam"}</p>
+
+                <button
+                  onClick={toggleRecording}
+                  className={`w-full py-4 text-white font-bold text-base rounded-2xl flex items-center justify-center gap-3 transition-all ${
+                    isRecording ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-rose-500 hover:bg-rose-600"
+                  }`}
+                >
+                  <Mic className="w-5 h-5" />
+                  {isRecording ? "Hentikan & Evaluasi AI" : "Mulai Rekam Suara"}
+                </button>
+              </div>
+
+              {/* TRANSKRIPSI TEKS */}
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">TRANSKRIPSI TEKS</h3>
+                  <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 font-bold text-xs rounded-full border">{wordCount} Kata</span>
+                </div>
+                <div className="w-full h-28 p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-700 text-sm overflow-y-auto italic">
+                  {transcript || "Teks ucapan akan tampil di sini saat Anda berbicara..."}
+                </div>
+              </div>
+
             </div>
 
-            {/* KANAN: EVALUASI KELAS (KOMPAK & DESIGN SEPERTI GAMBAR) */}
+            {/* RIGHT COLUMN: EVALUASI AI */}
             <div className="lg:col-span-6 space-y-6">
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
-                
-                {/* Header Evaluasi */}
-                <div className="flex justify-between items-start mb-4 border-b border-pink-200 pb-3">
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border-t-4 border-purple-600">
+                <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
                   <div>
-                    <h3 className="text-base font-black text-rose-950">Evaluasi AI & Rubrik OddMind</h3>
-                    <p className="text-[11px] text-slate-500">Penilaian Otomatis Berdasarkan Critical Thinking & Public Speaking</p>
+                    <h2 className="text-lg font-bold text-slate-800">Evaluasi AI & Rubrik OddMind</h2>
+                    <p className="text-xs text-slate-500">Penilaian Otomatis Berdasarkan Critical Thinking & Public Speaking</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Overall Score</span>
-                    <span className="text-2xl font-black text-rose-600">
-                      {evaluationResult ? evaluationResult.totalScore : "0"} <span className="text-xs text-slate-400">/ 100</span>
-                    </span>
+                    <span className="text-xs text-slate-400 font-semibold uppercase block">Overall Score</span>
+                    <span className="text-2xl font-black text-purple-700">{evaluation.overall} / 100</span>
                   </div>
                 </div>
 
-                {/* Tab Pilihan Kategori Rubrik */}
-                <div className="flex gap-2 border-b border-pink-200 pb-3 mb-4">
+                <div className="flex border-b border-slate-200 mb-4 text-xs font-bold">
                   <button
-                    onClick={() => setActiveEvalTab("critical")}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      activeEvalTab === "critical"
-                        ? "bg-rose-600 text-white shadow-sm"
-                        : "bg-pink-50 text-rose-900 hover:bg-pink-100"
+                    onClick={() => setRubricTab("ct")}
+                    className={`py-2 px-4 border-b-2 flex items-center gap-1.5 ${
+                      rubricTab === "ct" ? "border-purple-600 text-purple-700" : "text-slate-400"
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Critical Thinking
+                    <Brain className="w-4 h-4" /> Critical Thinking
                   </button>
                   <button
-                    onClick={() => setActiveEvalTab("public")}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      activeEvalTab === "public"
-                        ? "bg-rose-600 text-white shadow-sm"
-                        : "bg-pink-50 text-rose-900 hover:bg-pink-100"
+                    onClick={() => setRubricTab("ps")}
+                    className={`py-2 px-4 border-b-2 flex items-center gap-1.5 ${
+                      rubricTab === "ps" ? "border-cyan-600 text-cyan-700" : "text-slate-400"
                     }`}
                   >
-                    <Mic className="w-3.5 h-3.5" /> Public Speaking
+                    <MessageSquare className="w-4 h-4" /> Public Speaking
                   </button>
                 </div>
 
-                {/* List 5 Poin Compact */}
-                <div className="space-y-2.5 mb-5">
-                  {activeEvalTab === "critical" ? (
-                    [
-                      { key: "analisis", label: "1. Analisis Premis" },
-                      { key: "evaluasi", label: "2. Evaluasi Bukti" },
-                      { key: "inferensi", label: "3. Inferensi Logika" },
-                      { key: "eksplanasi", label: "4. Struktur & Eksplanasi" },
-                      { key: "regulasiDiri", label: "5. Regulasi & Sanggahan" }
-                    ].map((item) => {
-                      const scoreVal = evaluationResult ? evaluationResult.criticalScores[item.key] : 1;
-                      return (
-                        <div key={item.key} className="p-3 bg-white/70 border border-pink-100 rounded-xl flex justify-between items-center">
-                          <span className="text-xs font-bold text-rose-950">{item.label}</span>
-                          <span className="px-3 py-1 bg-pink-50 border border-pink-200 text-rose-700 font-extrabold text-xs rounded-lg">
-                            {scoreVal} / 5
-                          </span>
+                <div className="space-y-2.5 mb-6">
+                  {rubricTab === "ct" ? (
+                    <>
+                      {ctLabels.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
+                          <span className="font-black text-sm text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border">{evaluation.ctScores[idx]} / 5</span>
                         </div>
-                      );
-                    })
+                      ))}
+                    </>
                   ) : (
-                    [
-                      { key: "kejelasanIsi", label: "1. Kejelasan Artikulasi" },
-                      { key: "kefasihanVokal", label: "2. Intonasi & Tekanan" },
-                      { key: "diksi", label: "3. Kecepatan & Tempo" },
-                      { key: "intonasiPacing", label: "4. Kontak Mata / Gestur" },
-                      { key: "kepercayaanDiri", label: "5. Kepercayaan Diri" }
-                    ].map((item) => {
-                      const scoreVal = evaluationResult ? evaluationResult.publicScores[item.key] : 1;
-                      return (
-                        <div key={item.key} className="p-3 bg-white/70 border border-pink-100 rounded-xl flex justify-between items-center">
-                          <span className="text-xs font-bold text-rose-950">{item.label}</span>
-                          <span className="px-3 py-1 bg-pink-50 border border-pink-200 text-rose-700 font-extrabold text-xs rounded-lg">
-                            {scoreVal} / 5
-                          </span>
+                    <>
+                      {psLabels.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
+                          <span className="font-black text-sm text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-lg border">{evaluation.psScores[idx]} / 5</span>
                         </div>
-                      );
-                    })
+                      ))}
+                    </>
                   )}
                 </div>
 
-                {/* TEMPO & FILLER COUNTER SECTION */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-3 bg-sky-50/80 border border-sky-100 rounded-xl text-center">
-                    <span className="text-[10px] font-bold text-sky-800 uppercase block">Tempo (WPM)</span>
-                    <span className="text-base font-black text-sky-900">{evaluationResult ? evaluationResult.wpm : "0"} WPM</span>
-                  </div>
-                  <div className="p-3 bg-amber-50/80 border border-amber-100 rounded-xl text-center">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase block">Filler Terdeteksi</span>
-                    <span className="text-xs font-bold text-amber-900 truncate block mt-0.5">
-                      {evaluationResult && evaluationResult.fillers.length > 0 ? evaluationResult.fillers.join(", ") : "Tidak ada"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* AI DETAILED FEEDBACK BOX (Alasan, Feedback, Latihan, Baik/Buruk) */}
-                {evaluationResult && (
-                  <div className="p-4 bg-pink-50/80 border border-pink-200 rounded-xl space-y-2 text-xs text-rose-950">
-                    <div className="flex items-center gap-1.5 font-black text-rose-800">
-                      <Sparkles className="w-4 h-4" /> Alasan & Evaluasi AI:
+                {/* HIGHLIGHT FEEDBACK WPM & FILLER WORDS */}
+                {evaluation.wpm > 0 && (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-xl text-center">
+                      <span className="text-xs font-bold text-cyan-800 block">Tempo (WPM)</span>
+                      <span className="text-lg font-black text-cyan-700">{evaluation.wpm} WPM</span>
                     </div>
-                    <p><b>Kenapa skor ini:</b> {evaluationResult.aiReason}</p>
-                    <p><b>Feedback:</b> {evaluationResult.feedback}</p>
-                    <p><b>Yang harus dilatih:</b> {evaluationResult.toPractice}</p>
-                    {evaluationResult.goodPoints && (
-                      <p className="text-emerald-700 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> <b>Baik:</b> {evaluationResult.goodPoints}
-                      </p>
-                    )}
-                    {evaluationResult.badPoints && (
-                      <p className="text-rose-700 flex items-center gap-1">
-                        <XCircle className="w-3.5 h-3.5 shrink-0" /> <b>Kurang:</b> {evaluationResult.badPoints}
-                      </p>
-                    )}
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                      <span className="text-xs font-bold text-amber-800 block">Filler Terdeteksi</span>
+                      <span className="text-xs font-extrabold text-amber-700">
+                        {evaluation.fillerWordsDetected.length > 0 ? evaluation.fillerWordsDetected.join(", ") : "Tidak Ada 🎉"}
+                      </span>
+                    </div>
                   </div>
                 )}
 
+                <div className="space-y-3">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <h4 className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 mb-1">
+                      <ThumbsUp className="w-3.5 h-3.5" /> Yang Sudah Bagus
+                    </h4>
+                    <p className="text-xs text-emerald-700">{evaluation.goodText}</p>
+                  </div>
+
+                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-200">
+                    <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-1">
+                      <Wrench className="w-3.5 h-3.5" /> Yang Perlu Ditingkatkan
+                    </h4>
+                    <p className="text-xs text-rose-700">{evaluation.improveText}</p>
+                  </div>
+
+                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-200 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-purple-800 flex items-center gap-1.5 mb-1">
+                        <Target className="w-3.5 h-3.5" /> Rekomendasi Latihan
+                      </h4>
+                      <p className="text-xs text-purple-700">{evaluation.recommendText}</p>
+                    </div>
+                    <button onClick={getNewCard} className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl whitespace-nowrap">
+                      Latihan Lagi
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
 
           </div>
         )}
 
-        {/* TAB 2: RAPOR & GRAFIK */}
+        {/* TAB 2: RAPOR PERKEMBANGAN (DASHBOARD & GRAPH & TARGET TRACKER) */}
         {activeTab === "rapor" && (
-          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-6">
-            <div>
-              <h2 className="text-xl font-black text-rose-950">Rapor Perkembangan & Grafik Analitik</h2>
-              <p className="text-xs text-slate-500 mt-1">Visualisasi kemajuan kemampuan berpikir kritis dan public speaking Anda.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl shadow-sm">
-                <span className="text-xs font-bold opacity-80">RATA-RATA SKOR</span>
-                <p className="text-3xl font-black mt-1">82.5 <span className="text-sm font-normal">/100</span></p>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">+5.4% dari minggu lalu</span>
-              </div>
-              <div className="p-5 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-2xl shadow-sm">
-                <span className="text-xs font-bold opacity-80">TOTAL SESI LATIHAN</span>
-                <p className="text-3xl font-black mt-1">47 Sesi</p>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">Konsisten 12 Hari</span>
-              </div>
-              <div className="p-5 bg-gradient-to-br from-purple-600 to-rose-600 text-white rounded-2xl shadow-sm">
-                <span className="text-xs font-bold opacity-80">LEVEL KEMAMPUAN</span>
-                <p className="text-2xl font-black mt-1">Logical Thinker</p>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded mt-2 inline-block">Level 3 (Advanced)</span>
-              </div>
-            </div>
-
-            <div className="p-6 bg-white/50 border border-pink-200 rounded-2xl space-y-4">
-              <h3 className="text-sm font-black text-rose-950">Grafik Perkembangan Skor per Aspek</h3>
-              <div className="space-y-3">
+          <div className="space-y-6">
+            
+            {/* TARGET TRACKER (GOAL SETTING) & STATS */}
+            <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
                 <div>
-                  <div className="flex justify-between text-xs font-bold text-rose-900 mb-1">
-                    <span>Analisis Premis</span>
-                    <span>85%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-rose-600 h-full rounded-full" style={{ width: "85%" }}></div>
-                  </div>
+                  <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-purple-600" /> Target Tracker (Goal Setting)
+                  </h3>
+                  <p className="text-xs text-slate-500">Target Skor Bicara Kamu</p>
                 </div>
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-rose-900 mb-1">
-                    <span>Evaluasi Bukti</span>
-                    <span>78%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-pink-600 h-full rounded-full" style={{ width: "78%" }}></div>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-slate-600">Set Target Skor:</label>
+                  <input
+                    type="number"
+                    value={targetScore}
+                    onChange={(e) => setTargetScore(Number(e.target.value))}
+                    className="w-20 bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-center text-sm font-bold text-purple-700 outline-none"
+                  />
                 </div>
               </div>
+
+              {/* PROGRESS BAR HORIZONAL */}
+              <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
+                <div
+                  className="bg-gradient-to-r from-purple-500 to-cyan-500 h-full transition-all duration-500 rounded-full"
+                  style={{ width: `${targetProgressPercent}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between items-center mt-2 text-xs font-bold text-slate-600">
+                <span>Pencapaian: {avgOverall} Poin</span>
+                <span>{targetProgressPercent}% Target Tercapai ({targetScore} Poin)</span>
+              </div>
             </div>
+
+            {/* TOP STATS CARDS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
+                <span className="text-xs font-bold text-slate-400 block mb-1">OVERALL SPEAKING</span>
+                <span className="text-3xl font-black text-purple-600">{avgOverall} / 100</span>
+              </div>
+              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
+                <span className="text-xs font-bold text-slate-400 block mb-1">CRITICAL THINKING</span>
+                <span className="text-3xl font-black text-indigo-600">{avgCTScore} / 100</span>
+              </div>
+              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
+                <span className="text-xs font-bold text-slate-400 block mb-1">TOTAL REKAMAN</span>
+                <span className="text-3xl font-black text-slate-700">{totalRecordings}</span>
+              </div>
+              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
+                <span className="text-xs font-bold text-slate-400 block mb-1">STREAK LATIHAN</span>
+                <span className="text-3xl font-black text-amber-500 flex items-center justify-center gap-1">
+                  <Flame className="w-6 h-6 text-amber-500 fill-amber-500" /> {streak} Hari
+                </span>
+              </div>
+            </div>
+
+            {/* GRAFIK PROGRES TREN (LINE CHART) & RADAR CHART */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* LINE CHART TREN HARIAN */}
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-600" /> Grafik Progres Tren
+                  </h3>
+                  <p className="text-xs text-slate-500">Perkembangan Skor dari Sesi ke Sesi</p>
+                </div>
+                <div className="w-full h-[300px]">
+                  {trendData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="Skor" stroke="#7c3aed" strokeWidth={3} dot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
+                      Belum ada data tren. Lakukan beberapa rekaman!
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RADAR CHART (5 AKSIS PENTAGON) */}
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-800">Analisis Kemampuan (Radar Chart)</h3>
+                  <p className="text-xs text-slate-500">Perbandingan 5 Dimensi Critical Thinking & Public Speaking</p>
+                </div>
+
+                <div className="w-full h-[300px] flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: "#475569", fontSize: 11, fontWeight: 600 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#cbd5e1" />
+                      
+                      <Radar name="Critical Thinking" dataKey="CT" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.35} strokeWidth={2} />
+                      <Radar name="Public Speaking" dataKey="PS" stroke="#10b981" fill="#10b981" fillOpacity={0.3} strokeWidth={2} />
+
+                      <Tooltip />
+                      <Legend />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+            </div>
+
+            {/* DAILY QUESTS & BADGES GAMIFICATION */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* DAILY / WEEKLY QUESTS */}
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
+                <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" /> Misi Harian (Daily Quests)
+                </h3>
+                <div className="space-y-3 text-xs font-semibold">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className={`w-4 h-4 ${history.length >= 1 ? "text-emerald-500" : "text-slate-300"}`} />
+                      <span>Selesaikan 1 Latihan Bicara Hari Ini</span>
+                    </div>
+                    <span className="text-purple-700 font-bold">+50 XP</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className={`w-4 h-4 ${streak >= 3 ? "text-emerald-500" : "text-slate-300"}`} />
+                      <span>Pertahankan Streak Latihan 3 Hari</span>
+                    </div>
+                    <span className="text-purple-700 font-bold">+100 XP</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
+                      <span>Capai Skor Bicara &gt; 80 Poin</span>
+                    </div>
+                    <span className="text-purple-700 font-bold">+150 XP</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* UNLOCKED BADGES */}
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
+                <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-indigo-600" /> Lencana Pencapaian (Badges)
+                </h3>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className={`p-3 rounded-xl border ${streak >= 3 ? "bg-amber-50 border-amber-300 text-amber-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
+                    <Flame className="w-6 h-6 mx-auto mb-1 text-amber-500" />
+                    <span className="text-xs font-bold block">3-Day Streak</span>
+                  </div>
+
+                  <div className={`p-3 rounded-xl border ${history.some(h => h.fillers === 0) ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
+                    <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-emerald-500" />
+                    <span className="text-xs font-bold block">No Filler Champion</span>
+                  </div>
+
+                  <div className={`p-3 rounded-xl border ${history.some(h => h.overall >= 85) ? "bg-purple-50 border-purple-300 text-purple-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
+                    <Brain className="w-6 h-6 mx-auto mb-1 text-purple-600" />
+                    <span className="text-xs font-bold block">Logical Master</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
           </div>
         )}
 
-        {/* TAB 3: RIWAYAT & PERBANDINGAN */}
+        {/* TAB 3: RIWAYAT & SIDE-BY-SIDE COMPARISON */}
         {activeTab === "riwayat" && (
           <div className="space-y-6">
-            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200">
-              <div className="flex items-center gap-2 mb-2">
-                <GitCompare className="w-5 h-5 text-rose-600" />
-                <h2 className="text-xl font-black text-rose-950">Perbandingan Riwayat Rekaman</h2>
-              </div>
-              <p className="text-xs text-slate-500 mb-4">Pilih dua rekaman di bawah ini untuk membandingkan skor, transkrip, dan evaluasi AI.</p>
+            
+            {/* SIDE BY SIDE COMPARISON SECTION */}
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
+              <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <Compass className="w-5 h-5 text-purple-600" /> Feature Before vs After (Side-by-Side Comparison)
+              </h2>
+              <p className="text-xs text-slate-500 mb-4">Pilih 2 rekaman untuk membandingkan perkembangan gaya bicara dan skor kamu!</p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-pink-50/50 rounded-xl border border-pink-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-bold text-rose-900 mb-1">Rekaman 1</label>
-                  <select 
-                    value={selectedHistory1} 
-                    onChange={(e) => setSelectedHistory1(e.target.value)}
-                    className="w-full bg-white border border-pink-200 rounded-xl p-2.5 text-xs font-bold text-rose-950 outline-none"
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Rekaman Awal (Before)</label>
+                  <select
+                    onChange={(e) => setCompareId1(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
                   >
-                    {historyList.map(h => (
-                      <option key={h.id} value={h.id}>{h.title} ({h.date}) - Skor: {h.totalScore}</option>
+                    <option value="">-- Pilih Sesi Awal --</option>
+                    {history.map(h => (
+                      <option key={h.id} value={h.id}>{h.date} - {h.topic} (Skor: {h.overall})</option>
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-rose-900 mb-1">Rekaman 2</label>
-                  <select 
-                    value={selectedHistory2} 
-                    onChange={(e) => setSelectedHistory2(e.target.value)}
-                    className="w-full bg-white border border-pink-200 rounded-xl p-2.5 text-xs font-bold text-rose-950 outline-none"
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Rekaman Terbaru (After)</label>
+                  <select
+                    onChange={(e) => setCompareId2(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
                   >
-                    {historyList.map(h => (
-                      <option key={h.id} value={h.id}>{h.title} ({h.date}) - Skor: {h.totalScore}</option>
+                    <option value="">-- Pilih Sesi Terbaru --</option>
+                    {history.map(h => (
+                      <option key={h.id} value={h.id}>{h.date} - {h.topic} (Skor: {h.overall})</option>
                     ))}
                   </select>
                 </div>
               </div>
+
+              {/* CARD COMPARISON RESULT */}
+              {selectedCompare1 && selectedCompare2 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50/50 border border-purple-200 rounded-2xl">
+                  <div className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm space-y-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase">SESI BEFORE ({selectedCompare1.date})</span>
+                    <h4 className="font-bold text-slate-800 text-sm">{selectedCompare1.topic}</h4>
+                    <p className="text-2xl font-black text-purple-700">{selectedCompare1.overall} / 100</p>
+                    <p className="text-xs text-slate-600 italic">"{selectedCompare1.transcript}"</p>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm space-y-2">
+                    <span className="text-xs font-bold text-emerald-600 uppercase">SESI AFTER ({selectedCompare2.date})</span>
+                    <h4 className="font-bold text-slate-800 text-sm">{selectedCompare2.topic}</h4>
+                    <p className="text-2xl font-black text-emerald-600">{selectedCompare2.overall} / 100</p>
+                    <p className="text-xs text-slate-600 italic">"{selectedCompare2.transcript}"</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200 space-y-4">
-                <div className="flex justify-between items-start border-b border-pink-200 pb-3">
-                  <div>
-                    <span className="text-[10px] font-bold bg-pink-100 text-rose-800 px-2 py-0.5 rounded">{item1.date}</span>
-                    <h3 className="font-extrabold text-rose-950 text-base mt-1">{item1.title}</h3>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 block">TOTAL SKOR</span>
-                    <span className="text-2xl font-black text-rose-600">{item1.totalScore}</span>
-                  </div>
+            {/* LIST RIWAYAT REKAMAN */}
+            <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
+              <h2 className="text-lg font-bold text-slate-800">📜 Riwayat Latihan Speaking</h2>
+              {history.length === 0 ? (
+                <p className="text-sm text-slate-500 italic py-6 text-center">Belum ada riwayat latihan. Mulai rekaman pertamamu!</p>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((h) => (
+                    <div key={h.id} className="p-4 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
+                      <div>
+                        <span className="text-xs text-slate-400">{h.date} - {h.level}</span>
+                        <h4 className="font-bold text-slate-800 text-sm">{h.topic}</h4>
+                        <p className="text-xs text-slate-500 italic mt-1">"{h.transcript}"</p>
+                      </div>
+                      <span className="text-xl font-black text-purple-700">{h.overall} / 100</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="p-3 bg-white/60 rounded-xl border border-pink-100">
-                  <span className="text-[10px] font-bold text-slate-400 block mb-1">TRANSKRIP:</span>
-                  <p className="text-xs italic text-slate-700">"{item1.transcript}"</p>
-                </div>
-              </div>
-
-              <div className="bg-white/85 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-pink-200 space-y-4">
-                <div className="flex justify-between items-start border-b border-pink-200 pb-3">
-                  <div>
-                    <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded">{item2.date}</span>
-                    <h3 className="font-extrabold text-rose-950 text-base mt-1">{item2.title}</h3>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 block">TOTAL SKOR</span>
-                    <span className="text-2xl font-black text-rose-600">{item2.totalScore}</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-white/60 rounded-xl border border-pink-100">
-                  <span className="text-[10px] font-bold text-slate-400 block mb-1">TRANSKRIP:</span>
-                  <p className="text-xs italic text-slate-700">"{item2.transcript}"</p>
-                </div>
-              </div>
+              )}
             </div>
+
           </div>
         )}
 
-        {/* TAB 4: VIDEO LEARNING HUB */}
-        {activeTab === "video" && (
-          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-6">
-            <div>
-              <h2 className="text-xl font-black text-rose-950">Video Learning Hub</h2>
-              <p className="text-xs text-slate-500 mt-1">Kurasi video pilihan untuk mempertajam kemampuan public speaking.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
-                <div>
-                  <span className="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-[10px] rounded">Public Speaking</span>
-                  <h4 className="font-bold text-sm text-rose-950 mt-2">How to Be Confident</h4>
-                </div>
-                <a href="https://www.youtube.com/results?search_query=how+to+be+confident+in+public+speaking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
-                </a>
-              </div>
-              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
-                <div>
-                  <span className="px-2 py-0.5 bg-pink-100 text-pink-700 font-bold text-[10px] rounded">Critical Thinking</span>
-                  <h4 className="font-bold text-sm text-rose-950 mt-2">Critical Thinking 101</h4>
-                </div>
-                <a href="https://www.youtube.com/results?search_query=how+to+improve+critical+thinking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-pink-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
-                </a>
-              </div>
-              <div className="p-5 bg-white/60 border border-pink-200 rounded-2xl flex flex-col justify-between space-y-4 shadow-sm">
-                <div>
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-[10px] rounded">Impromptu</span>
-                  <h4 className="font-bold text-sm text-rose-950 mt-2">Impromptu Speaking Tips</h4>
-                </div>
-                <a href="https://www.youtube.com/results?search_query=how+to+improve+impromptu+speaking" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5" /> Tonton di YouTube
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: LEADERBOARD */}
-        {activeTab === "leaderboard" && (
-          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 space-y-4">
-            <h2 className="text-xl font-black text-rose-950">Leaderboard</h2>
-            {[
-              { rank: 1, name: "Raka", score: 92 },
-              { rank: 2, name: userName, score: 80 },
-              { rank: 3, name: "Naya", score: 78 }
-            ].map((u) => (
-              <div key={u.rank} className="p-4 bg-white/60 border border-pink-200 rounded-xl flex justify-between items-center shadow-sm">
-                <span className="font-bold text-sm text-rose-950">{u.rank}. {u.name}</span>
-                <span className="font-black text-rose-600">{u.score} XP</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* TAB 6: AKUN */}
-        {activeTab === "akun" && (
-          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-pink-200 max-w-xl mx-auto space-y-4">
-            <h2 className="text-xl font-black text-rose-950">Pengaturan Akun</h2>
-            <div>
-              <label className="block text-xs font-bold text-rose-900 mb-1">Nama Tampilan</label>
-              <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full bg-white border border-pink-200 rounded-xl p-3 text-xs outline-none font-semibold text-rose-950 shadow-sm" />
-            </div>
-          </div>
-        )}
+      {/* TAB 4: VIDEO LEARNING HUB */}
+{activeTab === "video" && (
+  <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
+    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+      <Video className="w-5 h-5 text-rose-500" /> Video Learning Hub
+    </h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {[
+        { title: "How To Become A Confident Public Speaker", url: "https://www.youtube.com/embed/z3b10kV8F5U" },
+        { title: "Critical Thinking Skills: The Superpower", url: "https://www.youtube.com/embed/t57zsDTpAzY" },
+        { title: "How To Be Confident (Easy Steps)", url: "https://www.youtube.com/embed/iB4abdi5lBg" },
+        { title: "How To Think Fast On Your Feet (Impromptu Speaking)", url: "https://www.youtube.com/embed/wyvaEIMMG3U" }
+      ].map((v, i) => (
+        <div key={i} className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
+          <h4 className="font-bold text-slate-800 text-sm">{v.title}</h4>
+          <button onClick={() => setVideoUrl(v.url)} className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2">
+            <Play className="w-4 h-4" /> Tonton Video
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)} 
 
       </div>
+
+      {/* HINT MODAL */}
+      {showHintModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
+            <button onClick={() => setShowHintModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-bold text-lg text-slate-800">💡 Clue & Structural Hint</h3>
+            <p className="text-sm text-slate-600">Gunakan struktur <strong>PREP</strong> untuk merespons:</p>
+            <ul className="text-xs space-y-2 text-slate-700 list-disc pl-4">
+              <li><strong>P (Point):</strong> Sampaikan poin/pendapat utamamu.</li>
+              <li><strong>R (Reason):</strong> Berikan alasan pendukung yang logis.</li>
+              <li><strong>E (Example):</strong> Berikan contoh nyata atau pengalaman.</li>
+              <li><strong>P (Point):</strong> Tegaskan kembali kesimpulanmu.</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* VIDEO MODAL */}
+      {videoUrl && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-4 max-w-3xl w-full relative">
+            <button onClick={() => setVideoUrl(null)} className="absolute -top-10 right-0 text-white hover:text-slate-200">
+              <X className="w-6 h-6" />
+            </button>
+            <div className="aspect-video w-full">
+              <iframe src={videoUrl} className="w-full h-full rounded-xl" allowFullScreen title="Video Hub"></iframe>
+            </div>
+          </div>
+        </div>
+      )}
+{/* TAB: LEADERBOARD & AKUN */}
+{activeTab === "leaderboard" && (
+  <div className="bg-white/90 rounded-2xl p-6 shadow-sm space-y-6">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+      <div>
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          🏆 Leaderboard & Profil Konsistensi
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Peringkat didasarkan pada skor rata-rata dan konsistensi latihan (Minimum 5 latihan).
+        </p>
+      </div>
+
+      {/* Pengaturan Akun & Privasi Sederhana */}
+      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+        <div>
+          <input 
+            type="text" 
+            value={userAccount.name} 
+            onChange={(e) => setUserAccount({...userAccount, name: e.target.value})}
+            className="text-xs font-bold bg-white px-2 py-1 rounded border border-slate-300 w-28"
+            placeholder="Nama Anda"
+          />
+        </div>
+        <button 
+          onClick={() => setUserAccount({...userAccount, isPublic: !userAccount.isPublic})}
+          className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${
+            userAccount.isPublic ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
+          }`}
+        >
+          {userAccount.isPublic ? "🌎 Public Account" : "🔒 Private Account"}
+        </button>
+      </div>
+    </div>
+
+    {/* Kategori Leaderboard */}
+    <div className="flex gap-2 overflow-x-auto pb-2">
+      {["overall", "critical_thinking", "public_speaking", "consistent", "active"].map((cat) => (
+        <button
+          key={cat}
+          onClick={() => setLeaderboardTab(cat)}
+          className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+            leaderboardTab === cat ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {cat.replace('_', ' ')}
+        </button>
+      ))}
+    </div>
+
+    {/* Tabel Leaderboard */}
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b text-xs text-slate-400 font-semibold">
+            <th className="py-3 px-4">Rank</th>
+            <th className="py-3 px-4">Nama</th>
+            <th className="py-3 px-4">Skor Rata-Rata</th>
+            <th className="py-3 px-4">Total Latihan</th>
+            <th className="py-3 px-4">Streak</th>
+          </tr>
+        </thead>
+        <tbody className="text-sm text-slate-700">
+          {mockLeaderboard.overall.map((row) => (
+            <tr key={row.rank} className="border-b hover:bg-slate-50/80 transition-colors">
+              <td className="py-3 px-4 font-bold">
+                {row.rank === 1 ? "🥇 1" : row.rank === 2 ? "🥈 2" : row.rank === 3 ? "🥉 3" : row.rank}
+              </td>
+              <td className="py-3 px-4 font-semibold text-slate-800">{row.name}</td>
+              <td className="py-3 px-4 font-bold text-rose-600">{row.score}</td>
+              <td className="py-3 px-4">{row.practices} sesi</td>
+              <td className="py-3 px-4 text-orange-500 font-medium">🔥 {row.streak} hari</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {!userAccount.isPublic && (
+      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
+        🔒 Akun Anda berstatus <b>Private</b>. Statistik dan nama Anda disembunyikan dari leaderboard publik, namun progress latihan tetap tersimpan aman di perangkat Anda.
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 }
