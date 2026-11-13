@@ -1,34 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import {
-  BookOpen,
-  Mic,
-  Award,
-  Video,
-  Flame,
-  Layers,
-  Lightbulb,
-  ThumbsUp,
-  Wrench,
-  Target,
-  Brain,
-  MessageSquare,
-  BarChart2,
-  X,
-  Play,
-  Zap,
-  TrendingUp,
-  CheckCircle2,
-  ShieldAlert,
-  Swords,
-  Volume2,
-  Clock,
-  Sparkles,
-  Activity,
-  Calendar,
-  Compass,
-} from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { BookOpen, Mic, Video, BarChart2, History, Square, X, Play, CheckCircle2, Circle } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -54,6 +27,7 @@ import { scoredSessions, stats, trend, compare } from "@/lib/sessions";
 import type { Session } from "@/lib/sessions";
 import { evaluateBadges } from "@/lib/badges";
 import Modal from "@/components/Modal";
+import { highlight } from "@/lib/highlight";
 
 // ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
@@ -265,6 +239,14 @@ export default function PublicSpeakingApp() {
   const startedAtRef = useRef(0);
   const isRecordingRef = useRef(false);
   const lastRunRef = useRef<{ text: string; durationSeconds: number } | null>(null);
+  const resultsRef = useRef<HTMLElement>(null);
+
+  // Hasil baru: bawa pengguna ke panel hasil (di ponsel panel ada di bawah transkrip).
+  useEffect(() => {
+    if (evaluation.overall === "--") return;
+    resultsRef.current?.scrollIntoView({ block: "start" });
+    resultsRef.current?.focus({ preventScroll: true });
+  }, [evaluation.overall]);
 
   const getNewCard = () => {
     const filtered = topicDatabase.filter(t => {
@@ -505,7 +487,44 @@ export default function PublicSpeakingApp() {
   const diff = cmpA && cmpB ? compare(cmpA, cmpB) : null;
   const sessionLabel = (s: Session) => `${new Date(s.at).toLocaleDateString("id-ID")} - ${s.topic} (Skor: ${s.overall})`;
   const delta = (n: number, unit = "") => (n > 0 ? `▲ +${n}${unit}` : n < 0 ? `▼ ${n}${unit}` : `= 0${unit}`);
-  const deltaClass = (n: number, goodWhenUp = true) => (n === 0 ? "text-slate-500" : (n > 0) === goodWhenUp ? "text-emerald-600" : "text-rose-600");
+  const deltaClass = (n: number, goodWhenUp = true) => (n === 0 ? "text-ink-3" : (n > 0) === goodWhenUp ? "text-good" : "text-bad");
+
+  // Pola kelas bersama; seluruh warna/radius/bayangan berasal dari token di globals.css.
+  const btn = "inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-field text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const btnPrimary = `${btn} bg-accent text-white hover:bg-accent-hover`;
+  const btnSecondary = `${btn} border border-line-strong bg-surface text-ink hover:bg-paper`;
+  const panel = "rounded-panel border border-line bg-surface p-4 md:p-6";
+  const fieldCls = "w-full min-h-11 rounded-field border border-line-strong bg-surface px-3 text-base text-ink";
+  const tabs = [
+    { id: "latihan", short: "Latih", full: "Latihan Speaking", Icon: BookOpen },
+    { id: "rapor", short: "Rapor", full: "Rapor Perkembangan", Icon: BarChart2 },
+    { id: "riwayat", short: "Riwayat", full: "Riwayat & Komparasi", Icon: History },
+    { id: "video", short: "Video", full: "Video Learning Hub", Icon: Video },
+  ] as const;
+  const mm = Math.floor(timeLeft / 60).toString().padStart(2, "0");
+  const ss = (timeLeft % 60).toString().padStart(2, "0");
+  const noResult = evaluation.overall === "--";
+  const transcriptParts = !isRecording && transcript && evaluation.evidence.length > 0 ? highlight(transcript, evaluation.evidence.map((e: { quote: string }) => e.quote)) : null;
+  const flagList: { on: boolean; text: string; tone: string }[] = evaluation.flags
+    ? [
+        { on: evaluation.flags.gibberish, text: "Tidak bermakna", tone: "bg-bad-soft text-bad" },
+        { on: evaluation.flags.offTopic, text: "Di luar topik", tone: "bg-warn-soft text-warn" },
+        { on: evaluation.flags.tooShort, text: "Terlalu pendek", tone: "bg-warn-soft text-warn" },
+        { on: evaluation.flags.repetitive, text: "Banyak pengulangan", tone: "bg-warn-soft text-warn" },
+        { on: evaluation.flags.panic, text: "Dominan kata panik", tone: "bg-bad-soft text-bad" },
+        { on: !!evaluation.flags.rebuttalMissed, text: "Tidak menyanggah klaim AI", tone: "bg-warn-soft text-warn" },
+      ].filter((f) => f.on)
+    : [];
+  const rubricRows = (rubricTab === "ct" ? ctLabels : psLabels).map((label, idx) => ({
+    label,
+    score: noResult ? null : (rubricTab === "ct" ? evaluation.ctScores[idx] : evaluation.psScores[idx]) as number,
+  }));
+  const videos = [
+    { title: "How To Become A Confident Public Speaker", url: "https://www.youtube.com/embed/z3b10kV8F5U" },
+    { title: "Critical Thinking Skills: The Superpower", url: "https://www.youtube.com/embed/t57zsDTpAzY" },
+    { title: "How To Be Confident (Easy Steps)", url: "https://www.youtube.com/embed/iB4abdi5lBg" },
+    { title: "How To Think Fast On Your Feet (Impromptu Speaking)", url: "https://www.youtube.com/embed/wyvaEIMMG3U" },
+  ];
 
   const noticeText: Record<string, string> = {
     unavailable: "Penyimpanan browser tidak tersedia (mode privat atau diblokir). Aplikasi tetap jalan, tetapi riwayat hilang saat halaman ditutup.",
@@ -516,180 +535,90 @@ export default function PublicSpeakingApp() {
   const dataNotice = (
     <div className="space-y-2">
       {notice !== "none" && (
-        <div role="alert" className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">{noticeText[notice]}</div>
+        <div role="alert" className="rounded-field bg-warn-soft px-3 py-2 text-sm font-medium text-warn">{noticeText[notice]}</div>
       )}
-      <p className="text-xs text-slate-500">Riwayat tersimpan hanya di browser dan perangkat ini. Menghapus data browser atau memakai mode privat akan menghapusnya.</p>
+      <p className="text-sm text-ink-3">Riwayat tersimpan hanya di browser dan perangkat ini. Menghapus data browser atau memakai mode privat akan menghapusnya.</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-purple-100 to-indigo-100 text-slate-800 p-4 md:p-8 font-sans">
-      
-      {/* HEADER */}
-      <div className="max-w-7xl mx-auto text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-200/60 text-purple-800 text-xs font-semibold mb-3">
-          MEDIA PEMBELAJARAN SOFT SKILL & AI PUBLIC SPEAKING COACH
+    <div className="min-h-dvh bg-paper font-sans text-ink">
+      {/* HEADER: nama dan satu baris status; gamifikasi tidak mendominasi */}
+      <header className="mx-auto flex max-w-5xl items-baseline justify-between gap-3 px-4 pt-4 md:pt-6">
+        <div>
+          <h1 className="font-display text-2xl font-semibold md:text-3xl">OddMind</h1>
+          <p className="hidden text-sm text-ink-2 md:block">Latihan bicara dan berpikir kritis</p>
         </div>
-        <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-cyan-600">
-          OddMind
-        </h1>
-        <p className="text-slate-600 text-sm mt-1 font-medium">Train Your Mind, Shape Your Future</p>
+        <p className="tnum text-right text-sm text-ink-2">
+          Level {level.n}
+          <span className="hidden md:inline"> {level.name}</span> · {userXp} XP · {streak} hari
+        </p>
+      </header>
 
-        {/* GAMIFICATION STATS BAR (LEVEL, XP, STREAK) */}
-        <div className="flex flex-wrap justify-center items-center gap-4 mt-4 bg-white/60 backdrop-blur-md max-w-2xl mx-auto p-3 rounded-2xl border border-white shadow-sm">
-          <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-xl text-xs font-extrabold">
-            <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span>{streak} Hari Streak</span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-xl text-xs font-extrabold">
-            <Zap className="w-4 h-4 text-purple-600 fill-purple-600" />
-            <span>Level {level.n}: {level.name}</span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-extrabold">
-            <Award className="w-4 h-4 text-cyan-600" />
-            <span>{userXp} XP</span>
-          </div>
+      {/* NAVIGASI: bilah bawah di ponsel (jangkauan jempol), tab atas di layar lebar */}
+      <nav
+        aria-label="Menu utama"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:static md:z-auto md:mt-4 md:border-t-0 md:border-b md:bg-transparent md:pb-0"
+      >
+        <div className="mx-auto grid max-w-5xl grid-cols-4 md:flex md:gap-8 md:px-4">
+          {tabs.map(({ id, short, full, Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                aria-label={full}
+                aria-current={active ? "page" : undefined}
+                className={`-mt-px flex min-h-16 flex-col items-center justify-center gap-1 border-t-2 text-sm font-semibold transition-colors md:mt-0 md:min-h-12 md:flex-row md:gap-2 md:border-t-0 md:border-b-2 ${
+                  active ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"
+                }`}
+              >
+                <Icon className="size-5" aria-hidden="true" />
+                <span className="md:hidden">{short}</span>
+                <span className="hidden md:inline">{full}</span>
+              </button>
+            );
+          })}
         </div>
+      </nav>
 
-        {/* NAV TABS */}
-        <div className="flex flex-wrap justify-center gap-3 mt-6">
-          <button
-            onClick={() => setActiveTab("latihan")}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-              activeTab === "latihan" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" /> Latihan Speaking
-          </button>
-          <button
-            onClick={() => setActiveTab("rapor")}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-              activeTab === "rapor" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" /> Rapor Perkembangan
-          </button>
-          <button
-            onClick={() => setActiveTab("riwayat")}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-              activeTab === "riwayat" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
-            }`}
-          >
-            <Award className="w-4 h-4" /> Riwayat & Komparasi
-          </button>
-          <button
-            onClick={() => setActiveTab("video")}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-              activeTab === "video" ? "bg-purple-600 text-white shadow-lg" : "bg-white/80 text-slate-700 hover:bg-white"
-            }`}
-          >
-            <Video className="w-4 h-4" /> Video Learning Hub
-          </button>
-        </div>
-      </div>
-
-      {/* MAIN CONTENT CONTAINER */}
-      <div className="max-w-7xl mx-auto">
-        
-        {/* TAB 1: LATIHAN SPEAKING */}
+      <main className={`mx-auto max-w-5xl px-4 pt-6 md:pb-12 ${activeTab === "latihan" ? "pb-44" : "pb-28"}`}>
+        {/* TAB 1: LATIHAN */}
         {activeTab === "latihan" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* LEFT COLUMN */}
-            <div className="lg:col-span-6 space-y-6">
+          <div className="grid gap-8 md:grid-cols-12">
+            <div className="space-y-6 md:col-span-7">
+              {/* Kartu topik: pertanyaan adalah pusat layar */}
+              <section aria-labelledby="pertanyaan">
+                <h2 id="pertanyaan" className="font-display text-[1.65rem] leading-snug text-balance md:text-4xl">{currentTopic.question}</h2>
+                <p className="mt-3 text-sm text-ink-2">
+                  {currentTopic.title} · {currentTopic.level} · {currentTopic.category} · {currentTopic.id}
+                </p>
+              </section>
 
-              {/* CHALLENGE & MODE SPARRING AI */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border-l-4 border-amber-500 shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="px-3 py-1 bg-amber-500 text-white font-extrabold text-xs rounded-lg flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5" /> TODAY'S CHALLENGE
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={toggleSparringMode}
-                      disabled={isRecording}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isSparringMode ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                      }`}
-                    >
-                      <Swords className="w-3.5 h-3.5" /> {isSparringMode ? "Mode Sparring Active" : "Mode Debat AI"}
-                    </button>
-                    <button
-                      onClick={() => { const t = topicDatabase[30]; setCurrentTopic(t); if (isSparringMode) loadDebate(t); }}
-                      disabled={isRecording}
-                      className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Ambil
-                    </button>
-                  </div>
-                </div>
-
-                {isSparringMode ? (
-                  <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-1">
-                      <Swords className="w-4 h-4" /> OPINI SANGGAHAN AI (dibuat AI · Waktu Sanggah: 1 Menit)
-                    </h4>
-                    {debate.cardId !== currentTopic.id || debate.status === "loading" ? (
-                      <p role="status" className="text-sm font-semibold text-rose-900">Menyiapkan lawan debat…</p>
-                    ) : debate.status === "error" ? (
-                      <div role="alert" className="space-y-2">
-                        <p className="text-sm font-semibold text-rose-900">{debate.error}</p>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => loadDebate(currentTopic)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700">Coba lagi</button>
-                          <button onClick={() => setIsSparringMode(false)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white border border-rose-300 text-rose-800 hover:bg-rose-100">Kembali ke mode biasa</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold text-rose-900 italic">&ldquo;{debate.claim}&rdquo;</p>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <h3 className="font-bold text-slate-800 text-base mt-2">AI di Sekolah</h3>
-                    <p className="text-slate-600 text-sm mt-0.5">Haruskah kecerdasan buatan seperti ChatGPT diizinkan dalam pengerjaan tugas?</p>
-                  </>
-                )}
+              <div className="flex flex-wrap gap-2">
+                <button onClick={getNewCard} className={btnSecondary}>Ambil Kartu Baru</button>
+                <button onClick={() => setShowHintModal(true)} className={btnSecondary}>Hint Clue</button>
+                <button onClick={toggleSparringMode} disabled={isRecording} aria-pressed={isSparringMode} className={isSparringMode ? `${btn} bg-ink text-white` : btnSecondary}>
+                  Mode Debat AI{isSparringMode ? ": aktif" : ""}
+                </button>
               </div>
 
-              {/* QUESTION CARD */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-full">{currentTopic.level}</span>
-                    <span className="px-3 py-1 bg-cyan-100 text-cyan-700 font-semibold text-xs rounded-full">{currentTopic.category}</span>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-slate-400">{currentTopic.id}</span>
-                </div>
-
-                <div className="text-center py-6">
-                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">{currentTopic.title}</h2>
-                  <p className="text-slate-600 text-base leading-relaxed">{currentTopic.question}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-slate-100">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">Filter Level</label>
-                    <select
-                      value={filterLevel}
-                      onChange={(e) => setFilterLevel(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl p-2.5 outline-none"
-                    >
+              <details className="text-sm">
+                <summary className="min-h-11 py-2 font-semibold text-ink-2">Filter kartu dan topik pilihan</summary>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-medium text-ink-2">
+                    Filter Level
+                    <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className={`${fieldCls} mt-1`}>
                       <option value="all">Semua Level</option>
                       <option value="Pemula">Pemula</option>
                       <option value="Menengah">Menengah</option>
                       <option value="Mahir">Mahir</option>
                       <option value="Pakar">Pakar</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">Filter Kategori</label>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl p-2.5 outline-none"
-                    >
+                  </label>
+                  <label className="block text-sm font-medium text-ink-2">
+                    Filter Kategori
+                    <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`${fieldCls} mt-1`}>
                       <option value="all">Semua Kategori</option>
                       <option value="Education">Education</option>
                       <option value="Social">Social</option>
@@ -702,253 +631,234 @@ export default function PublicSpeakingApp() {
                       <option value="Global">Global</option>
                       <option value="Ethics">Ethics</option>
                     </select>
-                  </div>
+                  </label>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={getNewCard} className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2">
-                    <Layers className="w-4 h-4" /> Ambil Kartu Baru
+                <p className="mt-3 flex flex-wrap items-center gap-3 text-ink-2">
+                  Topik pilihan: AI di Sekolah
+                  <button
+                    onClick={() => { const t = topicDatabase[30]; setCurrentTopic(t); if (isSparringMode) loadDebate(t); }}
+                    disabled={isRecording}
+                    className={btnSecondary}
+                  >
+                    Ambil
                   </button>
-                  <button onClick={() => setShowHintModal(true)} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2">
-                    <Lightbulb className="w-4 h-4" /> Hint Clue
-                  </button>
-                </div>
-              </div>
+                </p>
+              </details>
 
-              {/* RECORDING AREA + LIVE ASSISTANT OVERLAY */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 text-center shadow-sm border border-white relative overflow-hidden">
-                
-                {/* LIVE ASSISTANT OVERLAY REALTIME */}
-                {isRecording && (
-                  <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-slate-900 text-white rounded-xl text-xs font-semibold animate-pulse">
-                    <div className="flex items-center justify-center gap-1 text-amber-400">
-                      <ShieldAlert className="w-4 h-4" />
-                      <span>Filler: {liveFillers}</span>
+              {isSparringMode && (
+                <section aria-labelledby="sanggah" className="rounded-panel border border-line-strong bg-surface p-4">
+                  <h3 id="sanggah" className="text-sm font-semibold text-ink-2">Sanggah pernyataan AI ini (dibuat AI, waktu 1 menit)</h3>
+                  {debate.cardId !== currentTopic.id || debate.status === "loading" ? (
+                    <p role="status" className="mt-2 text-base text-ink">Menyiapkan lawan debat…</p>
+                  ) : debate.status === "error" ? (
+                    <div role="alert" className="mt-2 space-y-3">
+                      <p className="text-base text-ink">{debate.error}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => loadDebate(currentTopic)} className={btnPrimary}>Coba lagi</button>
+                        <button onClick={() => setIsSparringMode(false)} className={btnSecondary}>Kembali ke mode biasa</button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-center gap-1 text-cyan-400">
-                      <Activity className="w-4 h-4" />
-                      <span>Pace: {livePaceStatus}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-emerald-400">
-                      <Clock className="w-4 h-4" />
-                      <span>{liveWpm} WPM</span>
-                    </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="mt-2 font-display text-lg leading-snug text-ink">&ldquo;{debate.claim}&rdquo;</p>
+                  )}
+                </section>
+              )}
 
-                <div className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">
-                  BATAS WAKTU: {isSparringMode ? "1 MENIT (SPARRING)" : "2 MENIT"}
+              {/* Transkripsi */}
+              <section aria-labelledby="transkrip">
+                <div className="flex items-baseline justify-between">
+                  <h3 id="transkrip" className="text-sm font-semibold text-ink-2">Transkripsi</h3>
+                  <span className="tnum text-sm text-ink-3">{wordCount} kata</span>
                 </div>
-                <div className="text-4xl font-black text-slate-800 font-mono my-2">
-                  {Math.floor(timeLeft / 60).toString().padStart(2, "0")}:{(timeLeft % 60).toString().padStart(2, "0")}
+                <div className="mt-2 max-h-52 min-h-28 overflow-y-auto rounded-field border border-line bg-surface p-3 text-base leading-relaxed">
+                  {transcript ? (
+                    transcriptParts ? (
+                      transcriptParts.map((p, i) => (p.mark ? <mark key={i} className="stabilo">{p.text}</mark> : <span key={i}>{p.text}</span>))
+                    ) : (
+                      transcript
+                    )
+                  ) : (
+                    <span className="text-ink-3">Teks ucapanmu tampil di sini saat kamu berbicara…</span>
+                  )}
                 </div>
-                <p className="text-xs font-semibold text-slate-500 mb-4">{isRecording ? "🔴 Merekam ucapan..." : "Siap untuk merekam"}</p>
-
-                <button
-                  onClick={toggleRecording}
-                  disabled={!isRecording && isSparringMode && !debateReady}
-                  className={`w-full py-4 text-white font-bold text-base rounded-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isRecording ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-rose-500 hover:bg-rose-600"
-                  }`}
-                >
-                  <Mic className="w-5 h-5" />
-                  {isRecording ? "Hentikan & Evaluasi AI" : "Mulai Rekam Suara"}
-                </button>
-                {!isRecording && isSparringMode && !debateReady && (
-                  <p className="mt-2 text-xs font-semibold text-amber-700">Rekam aktif setelah lawan debat siap, atau kembali ke mode biasa.</p>
-                )}
-                <p className="mt-3 text-xs text-slate-500">
+                <p className="mt-2 text-sm text-ink-3">
                   Privasi: browser mengubah suaramu menjadi teks lewat layanan pengenalan suara bawaannya (di Chrome, audio diproses server Google), lalu teks itu dikirim ke layanan AI (Google Gemini) untuk dinilai. Jangan menyebut data pribadi.
                 </p>
-              </div>
+              </section>
 
-              {/* TRANSKRIPSI TEKS */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">TRANSKRIPSI TEKS</h3>
-                  <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 font-bold text-xs rounded-full border">{wordCount} Kata</span>
+              {/* Dok rekam: menempel di atas bilah tab, terjangkau jempol */}
+              <div className="sticky bottom-[calc(var(--nav-h)+env(safe-area-inset-bottom))] z-30 -mx-4 border-t border-line bg-surface px-4 py-3 shadow-lift md:bottom-4 md:mx-0 md:rounded-panel md:border md:p-4">
+                <div className="flex items-center gap-4">
+                  <div className="min-w-24">
+                    <p className="tnum font-display text-3xl leading-none" aria-label="Sisa waktu">{mm}:{ss}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-3">
+                      {isRecording ? (
+                        <>
+                          <span className="size-2.5 rounded-full bg-accent" aria-hidden="true" />
+                          Merekam
+                        </>
+                      ) : (
+                        `Batas ${isSparringMode ? "1 menit" : "2 menit"}`
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleRecording}
+                    disabled={!isRecording && isSparringMode && !debateReady}
+                    className={`${isRecording ? `${btn} bg-ink text-white hover:bg-ink-2` : btnPrimary} min-h-14 flex-1 text-base`}
+                  >
+                    {isRecording ? <Square className="size-5" aria-hidden="true" /> : <Mic className="size-5" aria-hidden="true" />}
+                    {isRecording ? "Hentikan & Evaluasi AI" : "Mulai Rekam Suara"}
+                  </button>
                 </div>
-                <div className="w-full h-28 p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-700 text-sm overflow-y-auto italic">
-                  {transcript || "Teks ucapan akan tampil di sini saat Anda berbicara..."}
-                </div>
+                {isRecording && (
+                  <p role="status" className="tnum mt-2 text-sm text-ink-2">Filler {liveFillers} · Tempo {livePaceStatus} · {liveWpm} WPM</p>
+                )}
+                {!isRecording && isSparringMode && !debateReady && (
+                  <p className="mt-2 text-sm font-medium text-warn">Rekam aktif setelah lawan debat siap, atau kembali ke mode biasa.</p>
+                )}
               </div>
-
             </div>
 
-            {/* RIGHT COLUMN: EVALUASI AI */}
-            <div className="lg:col-span-6 space-y-6">
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border-t-4 border-purple-600">
-                <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+            {/* Hasil penilaian */}
+            <section ref={resultsRef} id="hasil" tabIndex={-1} aria-labelledby="hasil-judul" className="scroll-mt-4 outline-none md:col-span-5">
+              <div className={`${panel} space-y-6 ${noResult ? "" : "rise-in"}`}>
+                <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-800">Evaluasi AI & Rubrik OddMind</h2>
-                    <p className="text-xs text-slate-500">Penilaian Otomatis Berdasarkan Critical Thinking & Public Speaking</p>
+                    <h2 id="hasil-judul" className="font-display text-xl">Hasil penilaian</h2>
+                    <p className="text-sm text-ink-2">Dinilai dari isi ucapanmu</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400 font-semibold uppercase block">Overall Score</span>
-                    <span className="text-2xl font-black text-purple-700">{evaluation.overall} / 100</span>
-                  </div>
+                  <p className="tnum font-display text-5xl leading-none" aria-label={noResult ? "Belum ada skor" : `Skor ${evaluation.overall} dari 100`}>
+                    {noResult ? "–" : evaluation.overall}
+                    <span className="text-xl text-ink-3">/100</span>
+                  </p>
                 </div>
 
                 {evalStatus === "loading" && (
-                  <div role="status" className="mb-4 p-3 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">Menilai ucapanmu…</div>
+                  <div role="status" className="rounded-field bg-paper px-3 py-2 text-sm font-medium text-ink-2">Menilai ucapanmu…</div>
                 )}
                 {evalStatus === "empty" && (
-                  <div role="status" className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+                  <div role="status" className="rounded-field bg-warn-soft px-3 py-2 text-sm font-medium text-warn">
                     Tidak ada ucapan terdeteksi, jadi belum ada yang bisa dinilai. Periksa izin mikrofon lalu coba rekam lagi.
                   </div>
                 )}
                 {evalStatus === "error" && (
-                  <div role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800 flex items-center justify-between gap-3">
+                  <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-field bg-bad-soft px-3 py-2 text-sm font-medium text-bad">
                     <span>Penilaian AI sedang tidak tersedia, coba lagi.</span>
                     <button
                       onClick={() => lastRunRef.current && evaluateTranscript(lastRunRef.current.text, lastRunRef.current.durationSeconds)}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg whitespace-nowrap"
+                      className={btnPrimary}
                     >
                       Coba Lagi
                     </button>
                   </div>
                 )}
 
-                <div className="flex border-b border-slate-200 mb-4 text-xs font-bold">
-                  <button
-                    onClick={() => setRubricTab("ct")}
-                    className={`py-2 px-4 border-b-2 flex items-center gap-1.5 ${
-                      rubricTab === "ct" ? "border-purple-600 text-purple-700" : "text-slate-400"
-                    }`}
-                  >
-                    <Brain className="w-4 h-4" /> Critical Thinking
-                  </button>
-                  <button
-                    onClick={() => setRubricTab("ps")}
-                    className={`py-2 px-4 border-b-2 flex items-center gap-1.5 ${
-                      rubricTab === "ps" ? "border-cyan-600 text-cyan-700" : "text-slate-400"
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" /> Public Speaking
-                  </button>
-                </div>
-
-                <div className="space-y-2.5 mb-6">
-                  {rubricTab === "ct" ? (
-                    <>
-                      {ctLabels.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
-                          <span className="font-black text-sm text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border">{evaluation.overall === "--" ? "–" : evaluation.ctScores[idx]} / 5</span>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {psLabels.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
-                          <span className="font-black text-sm text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-lg border">{evaluation.overall === "--" ? "–" : evaluation.psScores[idx]} / 5</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-
-                {evaluation.flags && (
-                  <div className="flex flex-wrap gap-2 mb-4 text-xs font-bold">
-                    {evaluation.flags.gibberish && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">Tidak bermakna</span>}
-                    {evaluation.flags.offTopic && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Di luar topik</span>}
-                    {evaluation.flags.tooShort && <span className="px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">Terlalu pendek</span>}
-                    {evaluation.flags.repetitive && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Banyak pengulangan</span>}
-                    {evaluation.flags.panic && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">Dominan kata panik</span>}
-                    {evaluation.flags.rebuttalMissed && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Tidak menyanggah klaim AI</span>}
-                  </div>
+                {flagList.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {flagList.map((f) => (
+                      <li key={f.text} className={`rounded-field px-2.5 py-1 text-sm font-medium ${f.tone}`}>{f.text}</li>
+                    ))}
+                  </ul>
                 )}
 
-                {evaluation.rebuttal && (
-                  <div className="p-3 mb-4 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
-                    <span className="font-bold text-rose-800 block">Sanggahan terhadap klaim AI</span>
-                    <span className="block text-rose-900">{evaluation.rebuttal.addressed ? `Klaim disentuh · mutu sanggahan ${evaluation.rebuttal.quality}/5` : "Klaim AI belum disentuh; Evaluasi dan Inferensi dibatasi."}</span>
-                    {evaluation.rebuttal.evidence_quote && <span className="block italic text-rose-800">&ldquo;{evaluation.rebuttal.evidence_quote}&rdquo;</span>}
-                  </div>
-                )}
-
-                {/* HIGHLIGHT FEEDBACK WPM & FILLER WORDS */}
-                {evaluation.wpm > 0 && (
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-xl text-center">
-                      <span className="text-xs font-bold text-cyan-800 block">Tempo (WPM)</span>
-                      <span className="text-lg font-black text-cyan-700">{evaluation.wpm} WPM</span>
+                {!noResult && (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-ink-2">Langkah perbaikan</h3>
+                      <p className="mt-1 text-base">{evaluation.improveText}</p>
                     </div>
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                      <span className="text-xs font-bold text-amber-800 block">Filler Terdeteksi</span>
-                      <span className="text-xs font-extrabold text-amber-700">
+                    {evaluation.goodText && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-ink-2">Yang sudah bagus</h3>
+                        <p className="mt-1 text-base">{evaluation.goodText}</p>
+                      </div>
+                    )}
+                    {evaluation.rebuttal && (
+                      <div className="rounded-field border border-line-strong p-3">
+                        <h3 className="text-sm font-semibold text-ink-2">Sanggahan terhadap klaim AI</h3>
+                        <p className="mt-1 text-base">
+                          {evaluation.rebuttal.addressed ? `Klaim disentuh · mutu sanggahan ${evaluation.rebuttal.quality}/5` : "Klaim AI belum disentuh; Evaluasi dan Inferensi dibatasi."}
+                        </p>
+                        {evaluation.rebuttal.evidence_quote && (
+                          <p className="mt-1 text-base"><mark className="stabilo">{evaluation.rebuttal.evidence_quote}</mark></p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-field bg-paper p-3">
+                      <p className="text-sm text-ink-2">{evaluation.recommendText}</p>
+                      <button onClick={getNewCard} className={btnSecondary}>Latihan Lagi</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rubrik */}
+                <div>
+                  <div role="group" aria-label="Jenis rubrik" className="inline-flex rounded-field border border-line-strong p-0.5 text-sm font-semibold">
+                    <button onClick={() => setRubricTab("ct")} aria-pressed={rubricTab === "ct"} className={`min-h-11 rounded-[4px] px-3 ${rubricTab === "ct" ? "bg-ink text-white" : "text-ink-2"}`}>Critical Thinking</button>
+                    <button onClick={() => setRubricTab("ps")} aria-pressed={rubricTab === "ps"} className={`min-h-11 rounded-[4px] px-3 ${rubricTab === "ps" ? "bg-ink text-white" : "text-ink-2"}`}>Public Speaking</button>
+                  </div>
+                  <ul className="mt-3 space-y-2.5">
+                    {rubricRows.map((r, idx) => (
+                      <li key={r.label} className="flex items-center gap-3">
+                        <span className="w-36 shrink-0 text-sm">{idx + 1}. {r.label}</span>
+                        <span className="h-2 flex-1 rounded-full bg-line" aria-hidden="true">
+                          <span className="block h-full rounded-full bg-ink" style={{ width: r.score === null ? 0 : `${(r.score / 5) * 100}%` }} />
+                        </span>
+                        <span className="tnum w-10 text-right text-sm font-semibold">{r.score === null ? "–" : r.score} / 5</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {evaluation.wpm > 0 && (
+                  <dl className="grid grid-cols-2 gap-4 border-t border-line pt-4">
+                    <div>
+                      <dt className="text-sm text-ink-2">Tempo</dt>
+                      <dd className="tnum font-display text-2xl">{evaluation.wpm} <span className="font-sans text-sm text-ink-3">WPM</span></dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-ink-2">Filler terdeteksi</dt>
+                      <dd className="text-base">
                         {evaluation.fillers.length > 0
                           ? evaluation.fillers.map((f: { term: string; count: number }) => `${f.term} ×${f.count}`).join(", ")
                           : "Tidak terdeteksi"}
-                      </span>
-                      <span className="text-[10px] text-amber-700/80 block mt-1">Perkiraan bawah: speech-to-text sering membuang eee/emm.</span>
+                      </dd>
+                      <dd className="mt-1 text-sm text-ink-3">Perkiraan bawah: speech-to-text sering membuang eee/emm.</dd>
                     </div>
-                  </div>
+                  </dl>
                 )}
 
-                <div className="space-y-3">
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <h4 className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 mb-1">
-                      <ThumbsUp className="w-3.5 h-3.5" /> Yang Sudah Bagus
-                    </h4>
-                    <p className="text-xs text-emerald-700">{evaluation.goodText}</p>
-                  </div>
-
-                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-200">
-                    <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-1">
-                      <Wrench className="w-3.5 h-3.5" /> Yang Perlu Ditingkatkan
-                    </h4>
-                    <p className="text-xs text-rose-700">{evaluation.improveText}</p>
-                  </div>
-
-                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-200 flex items-center justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-bold text-purple-800 flex items-center gap-1.5 mb-1">
-                        <Target className="w-3.5 h-3.5" /> Rekomendasi Latihan
-                      </h4>
-                      <p className="text-xs text-purple-700">{evaluation.recommendText}</p>
-                    </div>
-                    <button onClick={getNewCard} className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl whitespace-nowrap">
-                      Latihan Lagi
-                    </button>
-                  </div>
-
-                  {evaluation.evidence.length > 0 && (
-                    <details className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                      <summary className="text-xs font-bold text-slate-700 cursor-pointer">Bukti dari ucapanmu ({evaluation.evidence.length})</summary>
-                      <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
-                        {evaluation.evidence.map((e: { label: string; score: number; quote: string; verified: boolean }, i: number) => (
-                          <li key={i}><span className="font-bold">{e.label} ({e.score}/5):</span> <span className="italic">&ldquo;{e.quote}&rdquo;</span></li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-
+                {evaluation.evidence.length > 0 && (
+                  <details className="border-t border-line pt-4">
+                    <summary className="min-h-11 py-2 text-sm font-semibold text-ink-2">Bukti dari ucapanmu ({evaluation.evidence.length})</summary>
+                    <ul className="mt-2 space-y-2 text-base">
+                      {evaluation.evidence.map((e: { label: string; score: number; quote: string; verified: boolean }, i: number) => (
+                        <li key={i}>
+                          <span className="font-semibold">{e.label} ({e.score}/5):</span> <mark className="stabilo">{e.quote}</mark>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
-            </div>
-
+            </section>
           </div>
         )}
 
-        {/* TAB 2: RAPOR PERKEMBANGAN (DASHBOARD & GRAPH & TARGET TRACKER) */}
+        {/* TAB 2: RAPOR */}
         {activeTab === "rapor" && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {dataNotice}
-            
-            {/* TARGET TRACKER (GOAL SETTING) & STATS */}
-            <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+
+            <section className={`${panel} space-y-4`} aria-labelledby="target-judul">
+              <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                    <Target className="w-5 h-5 text-purple-600" /> Target Tracker (Goal Setting)
-                  </h3>
-                  <p className="text-xs text-slate-500">Target Skor Bicara Kamu</p>
+                  <h2 id="target-judul" className="font-display text-xl">Target skor</h2>
+                  <p className="text-sm text-ink-2">{st ? `Rata-rata ${avgOverall} poin dari ${totalRecordings} sesi dinilai` : "Belum ada sesi yang dinilai"}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-bold text-slate-600">Set Target Skor:</label>
+                <label className="flex items-center gap-2 text-sm font-medium text-ink-2">
+                  Target
                   <input
                     type="number"
                     value={targetScore}
@@ -956,194 +866,148 @@ export default function PublicSpeakingApp() {
                     min={1}
                     max={100}
                     aria-label="Target skor"
-                    className="w-20 bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-center text-sm font-bold text-purple-700 outline-none"
+                    className={`${fieldCls} tnum w-24 text-center`}
                   />
-                </div>
+                </label>
               </div>
+              <div className="h-3 w-full rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={targetProgressPercent} aria-label="Pencapaian target">
+                <div className="h-full rounded-full bg-ink transition-[width] duration-300" style={{ width: `${targetProgressPercent}%` }} />
+              </div>
+              <p className="tnum text-sm text-ink-2">{targetProgressPercent}% dari target {targetScore} poin</p>
+            </section>
 
-              {/* PROGRESS BAR HORIZONAL */}
-              <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-cyan-500 h-full transition-all duration-500 rounded-full"
-                  style={{ width: `${targetProgressPercent}%` }}
-                ></div>
+            <dl className={`${panel} grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4`}>
+              <div>
+                <dt className="text-sm text-ink-2">Skor keseluruhan</dt>
+                <dd className="tnum font-display text-3xl">{st ? avgOverall : "–"}<span className="text-base text-ink-3">{st ? "/100" : ""}</span></dd>
               </div>
-              <div className="flex justify-between items-center mt-2 text-xs font-bold text-slate-600">
-                <span>{st ? `Pencapaian: ${avgOverall} Poin (rata-rata ${totalRecordings} sesi dinilai)` : "Belum ada sesi yang dinilai"}</span>
-                <span>{targetProgressPercent}% Target Tercapai ({targetScore} Poin)</span>
+              <div>
+                <dt className="text-sm text-ink-2">Critical Thinking</dt>
+                <dd className="tnum font-display text-3xl">{st ? avgCTScore : "–"}<span className="text-base text-ink-3">{st ? "/100" : ""}</span></dd>
               </div>
-            </div>
+              <div>
+                <dt className="text-sm text-ink-2">Sesi dinilai</dt>
+                <dd className="tnum font-display text-3xl">{totalRecordings}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-ink-2">Streak latihan</dt>
+                <dd className="tnum font-display text-3xl">{streak}<span className="text-base text-ink-3"> hari</span></dd>
+              </div>
+            </dl>
 
-            {/* TOP STATS CARDS */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
-                <span className="text-xs font-bold text-slate-400 block mb-1">OVERALL SPEAKING</span>
-                <span className="text-3xl font-black text-purple-600">{st ? `${avgOverall} / 100` : "–"}</span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
-                <span className="text-xs font-bold text-slate-400 block mb-1">CRITICAL THINKING</span>
-                <span className="text-3xl font-black text-indigo-600">{st ? `${avgCTScore} / 100` : "–"}</span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
-                <span className="text-xs font-bold text-slate-400 block mb-1">SESI DINILAI</span>
-                <span className="text-3xl font-black text-slate-700">{totalRecordings}</span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
-                <span className="text-xs font-bold text-slate-400 block mb-1">STREAK LATIHAN</span>
-                <span className="text-3xl font-black text-amber-500 flex items-center justify-center gap-1">
-                  <Flame className="w-6 h-6 text-amber-500 fill-amber-500" /> {streak} Hari
-                </span>
-              </div>
-            </div>
-
-            {/* GRAFIK PROGRES TREN (LINE CHART) & RADAR CHART */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* LINE CHART TREN HARIAN */}
-              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" /> Grafik Progres Tren
-                  </h3>
-                  <p className="text-xs text-slate-500">Perkembangan Skor dari Sesi ke Sesi</p>
-                </div>
-                <div className="w-full h-[300px]">
+            <div className="grid gap-8 lg:grid-cols-2">
+              <section className={panel} aria-labelledby="tren-judul">
+                <h2 id="tren-judul" className="font-display text-xl">Skor dari sesi ke sesi</h2>
+                <p className="text-sm text-ink-2">10 sesi dinilai terakhir</p>
+                <div className="mt-4 h-[280px] w-full">
                   {trendData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                        <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
+                        <XAxis dataKey="name" tick={{ fontSize: 14, fill: "var(--color-ink-2)" }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 14, fill: "var(--color-ink-2)" }} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="Skor" stroke="#7c3aed" strokeWidth={3} dot={{ r: 5 }} />
+                        <Line type="monotone" dataKey="Skor" stroke="var(--color-ink)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--color-ink)", stroke: "var(--color-ink)" }} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-xs text-slate-500 italic text-center px-6">
+                    <p className="flex h-full items-center justify-center px-6 text-center text-sm italic text-ink-2">
                       Belum ada sesi yang dinilai. Rekam jawaban minimal 10 kata lalu tunggu penilaian AI; grafik muncul setelah sesi pertama.
-                    </div>
+                    </p>
                   )}
                 </div>
-              </div>
+              </section>
 
-              {/* RADAR CHART (5 AKSIS PENTAGON) */}
-              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-slate-800">Analisis Kemampuan (Radar Chart)</h3>
-                  <p className="text-xs text-slate-500">Perbandingan 5 Dimensi Critical Thinking & Public Speaking</p>
-                </div>
-
-                <div className="w-full h-[300px] flex items-center justify-center">
+              <section className={panel} aria-labelledby="radar-judul">
+                <h2 id="radar-judul" className="font-display text-xl">Peta kemampuan</h2>
+                <p className="text-sm text-ink-2">Rata-rata 10 dimensi dari sesi yang dinilai</p>
+                <div className="mt-4 flex h-[280px] w-full items-center justify-center">
                   {radarData.length === 0 ? (
-                    <p className="text-xs text-slate-500 italic text-center px-6">Radar menampilkan rata-rata 10 dimensi dari sesi yang dinilai. Belum ada data.</p>
+                    <p className="px-6 text-center text-sm italic text-ink-2">Radar menampilkan rata-rata 10 dimensi dari sesi yang dinilai. Belum ada data.</p>
                   ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                      <PolarGrid stroke="#e2e8f0" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: "#475569", fontSize: 11, fontWeight: 600 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#cbd5e1" />
-                      
-                      <Radar name="Critical Thinking" dataKey="CT" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.35} strokeWidth={2} />
-                      <Radar name="Public Speaking" dataKey="PS" stroke="#10b981" fill="#10b981" fillOpacity={0.3} strokeWidth={2} />
-
-                      <Tooltip />
-                      <Legend />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
+                        <PolarGrid stroke="var(--color-line)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--color-ink-2)", fontSize: 14 }} />
+                        <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
+                        <Radar name="Critical Thinking" dataKey="CT" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.18} strokeWidth={2} />
+                        <Radar name="Public Speaking" dataKey="PS" stroke="var(--color-ink-3)" fill="var(--color-ink-3)" fillOpacity={0.12} strokeWidth={2} strokeDasharray="5 4" />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ color: "var(--color-ink-2)", fontSize: 14 }} formatter={(v) => <span style={{ color: "var(--color-ink-2)" }}>{v}</span>} />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   )}
                 </div>
-              </div>
-
+              </section>
             </div>
 
-            {/* DAILY QUESTS & BADGES GAMIFICATION */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* DAILY / WEEKLY QUESTS */}
-              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
-                <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" /> Misi Harian (Daily Quests)
-                </h3>
-                <div className="space-y-3 text-xs font-semibold">
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${scored.some(h => h.day === today) ? "text-emerald-500" : "text-slate-300"}`} />
-                      <span>Selesaikan 1 Latihan Bicara yang Dinilai Hari Ini</span>
-                    </div>
-                  </div>
+            <div className="grid gap-8 lg:grid-cols-2">
+              <section className={panel} aria-labelledby="misi-judul">
+                <h2 id="misi-judul" className="font-display text-xl">Misi harian</h2>
+                <ul className="mt-3 space-y-3">
+                  {[
+                    { done: scored.some((h) => h.day === today), text: "Selesaikan 1 latihan bicara yang dinilai hari ini" },
+                    { done: streak >= 3, text: "Pertahankan streak latihan 3 hari" },
+                    { done: scored.some((h) => h.day === today && h.overall >= 80), text: "Capai skor 80 poin atau lebih hari ini" },
+                  ].map((m) => (
+                    <li key={m.text} className="flex items-start gap-3 text-base">
+                      {m.done ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-good" aria-hidden="true" /> : <Circle className="mt-0.5 size-5 shrink-0 text-ink-3" aria-hidden="true" />}
+                      <span>
+                        {m.text}
+                        <span className="sr-only">{m.done ? " (selesai)" : " (belum)"}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
 
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${streak >= 3 ? "text-emerald-500" : "text-slate-300"}`} />
-                      <span>Pertahankan Streak Latihan 3 Hari</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${scored.some(h => h.day === today && h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
-                      <span>Capai Skor Bicara 80 Poin atau Lebih Hari Ini</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* UNLOCKED BADGES */}
-              <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
-                <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-indigo-600" /> Lencana Pencapaian (Badges)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                  {badges.map((b) => {
-                    const Icon = b.id === "streak3" ? Flame : b.id === "noFiller" ? CheckCircle2 : Brain;
-                    const tone = b.id === "streak3" ? "bg-amber-50 border-amber-300 text-amber-900" : b.id === "noFiller" ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-purple-50 border-purple-300 text-purple-900";
-                    return (
-                      <div key={b.id} className={`p-3 rounded-xl border ${b.earned ? tone : "bg-slate-100 border-slate-200 text-slate-500"}`}>
-                        <Icon className={`w-6 h-6 mx-auto mb-1 ${b.earned ? "" : "opacity-40"}`} aria-hidden="true" />
-                        <span className="text-xs font-bold block">{b.name}</span>
-                        <span className="text-[10px] font-bold block mt-0.5">{b.earned ? "Terbuka" : `Terkunci · ${b.progress}`}</span>
-                        <span className="text-[10px] block mt-1 leading-snug opacity-80">{b.requirement}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
+              <section className={panel} aria-labelledby="lencana-judul">
+                <h2 id="lencana-judul" className="font-display text-xl">Lencana</h2>
+                <ul className="mt-3 divide-y divide-line">
+                  {badges.map((b) => (
+                    <li key={b.id} className="py-3 first:pt-0 last:pb-0">
+                      <p className="flex items-baseline justify-between gap-3">
+                        <span className="text-base font-semibold">{b.name}</span>
+                        <span className={`text-sm font-semibold ${b.earned ? "text-good" : "text-ink-3"}`}>{b.earned ? "Terbuka" : `Terkunci · ${b.progress}`}</span>
+                      </p>
+                      <p className="mt-0.5 text-sm text-ink-2">{b.requirement}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
-
           </div>
         )}
 
-        {/* TAB 3: RIWAYAT & SIDE-BY-SIDE COMPARISON */}
+        {/* TAB 3: RIWAYAT & KOMPARASI */}
         {activeTab === "riwayat" && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {dataNotice}
 
-            {/* SIDE BY SIDE COMPARISON SECTION */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
-              <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-                <Compass className="w-5 h-5 text-purple-600" /> Feature Before vs After (Side-by-Side Comparison)
-              </h2>
-              <p className="text-xs text-slate-500 mb-4">Pilih 2 sesi yang dinilai untuk membandingkan skor dan perkembangan gaya bicaramu.</p>
+            <section className={`${panel} space-y-4`} aria-labelledby="banding-judul">
+              <div>
+                <h2 id="banding-judul" className="font-display text-xl">Bandingkan dua sesi</h2>
+                <p className="text-sm text-ink-2">Pilih 2 sesi yang dinilai untuk melihat perkembangan skor dan gaya bicaramu.</p>
+              </div>
 
               {scored.length < 2 ? (
-                <p role="status" className="text-sm text-slate-500 italic py-4">
+                <p role="status" className="text-base text-ink-2">
                   Komparasi butuh minimal 2 sesi yang dinilai. Saat ini ada {scored.length}. Sesi yang terlalu pendek, tidak bermakna, atau data versi lama tidak dihitung.
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <label htmlFor="cmp-a" className="block text-xs font-bold text-slate-600 mb-1">Sesi Awal (Before)</label>
-                      <select id="cmp-a" value={cmpA?.id ?? ""} onChange={(e) => setCompareId1(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                      <label htmlFor="cmp-a" className="mb-1 block text-sm font-medium text-ink-2">Sesi awal (Before)</label>
+                      <select id="cmp-a" value={cmpA?.id ?? ""} onChange={(e) => setCompareId1(e.target.value)} className={fieldCls}>
                         {[...scored].reverse().map((s) => (
                           <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="cmp-b" className="block text-xs font-bold text-slate-600 mb-1">Sesi Terbaru (After)</label>
-                      <select id="cmp-b" value={cmpB?.id ?? ""} onChange={(e) => setCompareId2(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                      <label htmlFor="cmp-b" className="mb-1 block text-sm font-medium text-ink-2">Sesi terbaru (After)</label>
+                      <select id="cmp-b" value={cmpB?.id ?? ""} onChange={(e) => setCompareId2(e.target.value)} className={fieldCls}>
                         {[...scored].reverse().map((s) => (
                           <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
                         ))}
@@ -1152,80 +1016,77 @@ export default function PublicSpeakingApp() {
                   </div>
 
                   {cmpA && cmpB && diff && cmpA.id === cmpB.id && (
-                    <p role="status" className="text-xs text-amber-700 font-semibold">Pilih dua sesi yang berbeda.</p>
+                    <p role="status" className="text-sm font-medium text-warn">Pilih dua sesi yang berbeda.</p>
                   )}
                   {cmpA && cmpB && diff && cmpA.id !== cmpB.id && (
-                    <div className="space-y-4 p-4 bg-purple-50/50 border border-purple-200 rounded-2xl">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[{ s: cmpA, tag: "BEFORE", tone: "text-purple-700", box: "border-purple-100" }, { s: cmpB, tag: "AFTER", tone: "text-emerald-600", box: "border-emerald-200" }].map(({ s, tag, tone, box }) => (
-                          <div key={tag} className={`bg-white p-4 rounded-xl border ${box} shadow-sm space-y-2`}>
-                            <span className="text-xs font-bold text-slate-400 uppercase">SESI {tag} ({new Date(s.at).toLocaleDateString("id-ID")})</span>
-                            <h4 className="font-bold text-slate-800 text-sm">{s.topic}</h4>
-                            <p className={`text-2xl font-black ${tone}`}>{s.overall} / 100</p>
-                            <p className="text-xs text-slate-500">{s.wpm} WPM · {s.fillerCount} filler</p>
-                            {s.transcript && <p className="text-xs text-slate-600 italic line-clamp-4">&ldquo;{s.transcript}&rdquo;</p>}
+                    <div className="space-y-5">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {[{ s: cmpA, tag: "Before" }, { s: cmpB, tag: "After" }].map(({ s, tag }) => (
+                          <div key={tag} className="rounded-field border border-line p-4">
+                            <p className="text-sm text-ink-2">Sesi {tag} · {new Date(s.at).toLocaleDateString("id-ID")}</p>
+                            <p className="mt-1 text-base font-semibold">{s.topic}</p>
+                            <p className="tnum mt-1 font-display text-3xl">{s.overall}<span className="text-base text-ink-3">/100</span></p>
+                            <p className="tnum text-sm text-ink-2">{s.wpm} WPM · {s.fillerCount} filler</p>
+                            {s.transcript && <p className="mt-2 line-clamp-4 text-sm text-ink-2">&ldquo;{s.transcript}&rdquo;</p>}
                           </div>
                         ))}
                       </div>
-                      <div className="bg-white rounded-xl border border-slate-200 p-4">
-                        <h4 className="text-xs font-bold text-slate-700 mb-2">Selisih (After dikurangi Before)</h4>
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs font-semibold">
-                          <li className="flex justify-between sm:col-span-2 text-sm"><span>Overall</span><span className={deltaClass(diff.overall)}>{delta(diff.overall, " poin")}</span></li>
-                          {ctLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-slate-600">{l}</span><span className={deltaClass(diff.ct[i])}>{delta(diff.ct[i])}</span></li>))}
-                          {psLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-slate-600">{l}</span><span className={deltaClass(diff.ps[i])}>{delta(diff.ps[i])}</span></li>))}
-                          <li className="flex justify-between"><span className="text-slate-600">WPM</span><span className="text-slate-700">{delta(diff.wpm)}</span></li>
-                          <li className="flex justify-between"><span className="text-slate-600">Filler</span><span className={deltaClass(diff.fillerCount, false)}>{delta(diff.fillerCount)}</span></li>
+                      <div>
+                        <h3 className="text-sm font-semibold text-ink-2">Selisih (After dikurangi Before)</h3>
+                        <ul className="mt-2 grid gap-x-8 gap-y-1.5 text-base sm:grid-cols-2">
+                          <li className="flex justify-between font-semibold sm:col-span-2"><span>Overall</span><span className={`tnum ${deltaClass(diff.overall)}`}>{delta(diff.overall, " poin")}</span></li>
+                          {ctLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-ink-2">{l}</span><span className={`tnum ${deltaClass(diff.ct[i])}`}>{delta(diff.ct[i])}</span></li>))}
+                          {psLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-ink-2">{l}</span><span className={`tnum ${deltaClass(diff.ps[i])}`}>{delta(diff.ps[i])}</span></li>))}
+                          <li className="flex justify-between"><span className="text-ink-2">WPM</span><span className="tnum">{delta(diff.wpm)}</span></li>
+                          <li className="flex justify-between"><span className="text-ink-2">Filler</span><span className={`tnum ${deltaClass(diff.fillerCount, false)}`}>{delta(diff.fillerCount)}</span></li>
                         </ul>
                       </div>
                     </div>
                   )}
                 </>
               )}
-            </div>
+            </section>
 
-            {/* LIST RIWAYAT REKAMAN */}
-            <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
+            <section className="space-y-4" aria-labelledby="riwayat-judul">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-800">📜 Riwayat Latihan Speaking</h2>
+                <h2 id="riwayat-judul" className="font-display text-xl">Riwayat latihan</h2>
                 {history.length > 0 && (
-                  <button onClick={() => setShowClearModal(true)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">
-                    Hapus semua data
-                  </button>
+                  <button onClick={() => setShowClearModal(true)} className={`${btn} border border-bad text-bad hover:bg-bad-soft`}>Hapus semua data</button>
                 )}
               </div>
               {history.length === 0 ? (
-                <p className="text-sm text-slate-500 italic py-6 text-center">Belum ada riwayat latihan. Mulai rekaman pertamamu!</p>
+                <p className="py-6 text-base text-ink-2">Belum ada riwayat latihan. Mulai rekaman pertamamu!</p>
               ) : (
                 <ul className="space-y-3">
                   {history.map((h) => {
                     const counted = h.valid && !h.legacy;
                     return (
-                      <li key={h.id} className="bg-white rounded-xl border border-slate-200">
+                      <li key={h.id} className="rounded-panel border border-line bg-surface">
                         <details className="p-4">
-                          <summary className="flex justify-between items-center gap-3 cursor-pointer">
-                            <div>
-                              <span className="text-xs text-slate-400">
-                                {new Date(h.at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })} - {h.level}{h.mode === "debat" ? " - Mode Debat" : ""}
+                          <summary className="flex items-center justify-between gap-3">
+                            <span>
+                              <span className="block text-sm text-ink-3">
+                                {new Date(h.at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })} · {h.level}{h.mode === "debat" ? " · Mode Debat" : ""}
                               </span>
-                              <h4 className="font-bold text-slate-800 text-sm">{h.topic || "(tanpa judul)"}</h4>
-                              <div className="flex flex-wrap gap-1.5 mt-1 text-[10px] font-bold">
-                                {h.legacy && <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Versi lama, tidak dihitung</span>}
-                                {!h.legacy && !h.valid && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Tidak dinilai{h.flags.gibberish ? " · tidak bermakna" : h.flags.tooShort ? " · terlalu pendek" : ""}</span>}
-                              </div>
-                            </div>
-                            <span className={`text-xl font-black ${counted ? "text-purple-700" : "text-slate-400"}`}>{counted || h.legacy ? `${h.overall} / 100` : "–"}</span>
+                              <span className="block text-base font-semibold">{h.topic || "(tanpa judul)"}</span>
+                              {h.legacy && <span className="block text-sm text-ink-3">Versi lama, tidak dihitung</span>}
+                              {!h.legacy && !h.valid && (
+                                <span className="block text-sm text-warn">Tidak dinilai{h.flags.gibberish ? " · tidak bermakna" : h.flags.tooShort ? " · terlalu pendek" : ""}</span>
+                              )}
+                            </span>
+                            <span className={`tnum font-display text-2xl ${counted ? "text-ink" : "text-ink-3"}`}>{counted || h.legacy ? h.overall : "–"}</span>
                           </summary>
-                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
-                            <p>{h.words} kata · {h.wpm} WPM · {h.fillerCount} filler{h.fillers.length ? ` (${h.fillers.slice(0, 5).map((f) => `${f.term} ×${f.count}`).join(", ")})` : ""}</p>
-                            {h.feedback.good && <p><span className="font-bold text-emerald-700">Sudah bagus:</span> {h.feedback.good}</p>}
-                            {h.feedback.improve && <p><span className="font-bold text-rose-700">Perlu ditingkatkan:</span> {h.feedback.improve}</p>}
+                          <div className="mt-3 space-y-2 border-t border-line pt-3 text-base text-ink-2">
+                            <p className="tnum">{h.words} kata · {h.wpm} WPM · {h.fillerCount} filler{h.fillers.length ? ` (${h.fillers.slice(0, 5).map((f) => `${f.term} ×${f.count}`).join(", ")})` : ""}</p>
+                            {h.feedback.good && <p><span className="font-semibold text-good">Sudah bagus:</span> {h.feedback.good}</p>}
+                            {h.feedback.improve && <p><span className="font-semibold text-bad">Perlu ditingkatkan:</span> {h.feedback.improve}</p>}
                             {h.rebuttal && (
                               <p>
-                                <span className="font-bold text-rose-700">Klaim AI yang dilawan:</span> &ldquo;{h.rebuttal.claim}&rdquo;{" "}
-                                <span className="font-bold">{h.rebuttal.addressed ? `(disentuh, mutu ${h.rebuttal.quality}/5)` : "(belum disentuh)"}</span>
+                                <span className="font-semibold text-ink">Klaim AI yang dilawan:</span> &ldquo;{h.rebuttal.claim}&rdquo;{" "}
+                                <span className="font-semibold">{h.rebuttal.addressed ? `(disentuh, mutu ${h.rebuttal.quality}/5)` : "(belum disentuh)"}</span>
                               </p>
                             )}
-                            {h.transcript && <p className="italic">&ldquo;{h.transcript}&rdquo;</p>}
+                            {h.transcript && <p>&ldquo;{h.transcript}&rdquo;</p>}
                           </div>
                         </details>
                       </li>
@@ -1233,160 +1094,129 @@ export default function PublicSpeakingApp() {
                   })}
                 </ul>
               )}
-            </div>
-
+            </section>
           </div>
         )}
 
-      {/* TAB 4: VIDEO LEARNING HUB */}
-{activeTab === "video" && (
-  <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
-    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-      <Video className="w-5 h-5 text-rose-500" /> Video Learning Hub
-    </h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {[
-        { title: "How To Become A Confident Public Speaker", url: "https://www.youtube.com/embed/z3b10kV8F5U" },
-        { title: "Critical Thinking Skills: The Superpower", url: "https://www.youtube.com/embed/t57zsDTpAzY" },
-        { title: "How To Be Confident (Easy Steps)", url: "https://www.youtube.com/embed/iB4abdi5lBg" },
-        { title: "How To Think Fast On Your Feet (Impromptu Speaking)", url: "https://www.youtube.com/embed/wyvaEIMMG3U" }
-      ].map((v, i) => (
-        <div key={i} className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
-          <h4 className="font-bold text-slate-800 text-sm">{v.title}</h4>
-          <button onClick={() => setVideoUrl(v.url)} className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2">
-            <Play className="w-4 h-4" /> Tonton Video
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-)} 
+        {/* TAB 4: VIDEO */}
+        {activeTab === "video" && (
+          <section aria-labelledby="video-judul" className="space-y-4">
+            <h2 id="video-judul" className="font-display text-xl">Video belajar</h2>
+            <ul className="divide-y divide-line rounded-panel border border-line bg-surface">
+              {videos.map((v) => (
+                <li key={v.url} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <p className="min-w-0 flex-1 text-base font-semibold">{v.title}</p>
+                  <button onClick={() => setVideoUrl(v.url)} className={btnSecondary}>
+                    <Play className="size-4" aria-hidden="true" /> Tonton Video
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      </div>
+        {/* TAB: LEADERBOARD (tanpa tombol navigasi; data contoh) */}
+        {activeTab === "leaderboard" && (
+          <section aria-labelledby="lb-judul" className={`${panel} space-y-5`}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 id="lb-judul" className="font-display text-xl">Leaderboard dan profil konsistensi</h2>
+                <p className="mt-1 text-sm font-medium text-warn">Contoh data: peringkat ini belum terhubung ke pengguna nyata.</p>
+                <p className="text-sm text-ink-2">Peringkat didasarkan pada skor rata-rata dan konsistensi latihan (minimum 5 latihan).</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={userAccount.name}
+                  onChange={(e) => setUserAccount({ ...userAccount, name: e.target.value })}
+                  className={`${fieldCls} w-36`}
+                  placeholder="Nama kamu"
+                  aria-label="Nama"
+                />
+                <button onClick={() => setUserAccount({ ...userAccount, isPublic: !userAccount.isPublic })} aria-pressed={userAccount.isPublic} className={btnSecondary}>
+                  {userAccount.isPublic ? "Akun publik" : "Akun privat"}
+                </button>
+              </div>
+            </div>
 
-      {/* HINT MODAL */}
-      <Modal open={showHintModal} onClose={() => setShowHintModal(false)} label="Clue dan petunjuk struktur" panelClass="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
-        <button onClick={() => setShowHintModal(false)} aria-label="Tutup" className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-          <X className="w-5 h-5" />
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {["overall", "critical_thinking", "public_speaking", "consistent", "active"].map((cat) => (
+                <button key={cat} onClick={() => setLeaderboardTab(cat)} aria-pressed={leaderboardTab === cat} className={`${btn} shrink-0 capitalize ${leaderboardTab === cat ? "bg-ink text-white" : "border border-line-strong text-ink-2"}`}>
+                  {cat.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-base">
+                <thead>
+                  <tr className="border-b border-line text-sm text-ink-2">
+                    <th className="px-3 py-2 font-semibold">Peringkat</th>
+                    <th className="px-3 py-2 font-semibold">Nama</th>
+                    <th className="px-3 py-2 font-semibold">Skor rata-rata</th>
+                    <th className="px-3 py-2 font-semibold">Total latihan</th>
+                    <th className="px-3 py-2 font-semibold">Streak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockLeaderboard.overall.map((row) => (
+                    <tr key={row.rank} className="border-b border-line">
+                      <td className="tnum px-3 py-2 font-semibold">{row.rank}</td>
+                      <td className="px-3 py-2">{row.name}</td>
+                      <td className="tnum px-3 py-2">{row.score}</td>
+                      <td className="tnum px-3 py-2">{row.practices} sesi</td>
+                      <td className="tnum px-3 py-2">{row.streak} hari</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!userAccount.isPublic && (
+              <p className="rounded-field bg-warn-soft px-3 py-2 text-sm font-medium text-warn">
+                Akunmu berstatus privat. Statistik dan namamu disembunyikan dari leaderboard publik; progres latihan tetap tersimpan di perangkatmu.
+              </p>
+            )}
+          </section>
+        )}
+      </main>
+
+      {/* MODAL PETUNJUK */}
+      <Modal open={showHintModal} onClose={() => setShowHintModal(false)} label="Petunjuk struktur jawaban" panelClass="relative max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto rounded-panel bg-surface p-6 shadow-lift">
+        <button onClick={() => setShowHintModal(false)} aria-label="Tutup" className="absolute right-2 top-2 flex size-11 items-center justify-center rounded-field text-ink-2 hover:text-ink">
+          <X className="size-5" aria-hidden="true" />
         </button>
-        <h3 className="font-bold text-lg text-slate-800">💡 Clue & Structural Hint</h3>
-        <p className="text-sm text-slate-600">Gunakan struktur <strong>PREP</strong> untuk merespons:</p>
-        <ul className="text-xs space-y-2 text-slate-700 list-disc pl-4">
-          <li><strong>P (Point):</strong> Sampaikan poin/pendapat utamamu.</li>
+        <h3 className="pr-10 font-display text-xl">Petunjuk: struktur PREP</h3>
+        <p className="text-base text-ink-2">Gunakan struktur <strong className="text-ink">PREP</strong> untuk merespons:</p>
+        <ul className="list-disc space-y-2 pl-5 text-base">
+          <li><strong>P (Point):</strong> Sampaikan poin atau pendapat utamamu.</li>
           <li><strong>R (Reason):</strong> Berikan alasan pendukung yang logis.</li>
           <li><strong>E (Example):</strong> Berikan contoh nyata atau pengalaman.</li>
           <li><strong>P (Point):</strong> Tegaskan kembali kesimpulanmu.</li>
         </ul>
       </Modal>
 
-      <Modal open={showClearModal} onClose={() => setShowClearModal(false)} label="Hapus semua data" panelClass="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
-        <h3 className="font-bold text-lg text-slate-800">Hapus semua data?</h3>
-        <p className="text-sm text-slate-600">Semua riwayat latihan, XP, streak, dan target di browser ini akan dihapus dan tidak bisa dikembalikan.</p>
+      {/* MODAL HAPUS DATA */}
+      <Modal open={showClearModal} onClose={() => setShowClearModal(false)} label="Hapus semua data" panelClass="relative max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto rounded-panel bg-surface p-6 shadow-lift">
+        <h3 className="font-display text-xl">Hapus semua data?</h3>
+        <p className="text-base text-ink-2">Semua riwayat latihan, XP, streak, dan target di browser ini akan dihapus dan tidak bisa dikembalikan.</p>
         <div className="flex justify-end gap-2">
-          <button onClick={() => setShowClearModal(false)} className="px-4 py-2 text-sm font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Batal</button>
-          <button
-            onClick={() => { clearAll(); setCompareId1(""); setCompareId2(""); setShowClearModal(false); }}
-            className="px-4 py-2 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700"
-          >
+          <button onClick={() => setShowClearModal(false)} className={btnSecondary}>Batal</button>
+          <button onClick={() => { clearAll(); setCompareId1(""); setCompareId2(""); setShowClearModal(false); }} className={`${btn} bg-bad text-white hover:opacity-90`}>
             Hapus semua
           </button>
         </div>
       </Modal>
 
-      {/* VIDEO MODAL */}
-      <Modal open={!!videoUrl} onClose={() => setVideoUrl(null)} label="Pemutar video" overlayClass="bg-black/70" panelClass="bg-white rounded-2xl p-4 max-w-3xl w-full relative">
-        <button onClick={() => setVideoUrl(null)} aria-label="Tutup video" className="absolute -top-10 right-0 text-white hover:text-slate-200">
-          <X className="w-6 h-6" />
+      {/* MODAL VIDEO */}
+      <Modal open={!!videoUrl} onClose={() => setVideoUrl(null)} label="Pemutar video" overlayClass="bg-ink/70" panelClass="relative w-full max-w-3xl rounded-panel bg-surface p-3 shadow-lift">
+        <button onClick={() => setVideoUrl(null)} aria-label="Tutup video" className="absolute -top-12 right-0 flex size-11 items-center justify-center rounded-field text-white hover:text-paper">
+          <X className="size-6" aria-hidden="true" />
         </button>
         <div className="aspect-video w-full">
-          {videoUrl && <iframe src={videoUrl} className="w-full h-full rounded-xl" allowFullScreen title="Video Hub"></iframe>}
+          {videoUrl && <iframe src={videoUrl} className="h-full w-full rounded-field" allowFullScreen title="Video belajar"></iframe>}
         </div>
       </Modal>
-{/* TAB: LEADERBOARD & AKUN */}
-{activeTab === "leaderboard" && (
-  <div className="bg-white/90 rounded-2xl p-6 shadow-sm space-y-6">
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          🏆 Leaderboard & Profil Konsistensi
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Peringkat didasarkan pada skor rata-rata dan konsistensi latihan (Minimum 5 latihan).
-        </p>
-      </div>
-
-      {/* Pengaturan Akun & Privasi Sederhana */}
-      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-        <div>
-          <input 
-            type="text" 
-            value={userAccount.name} 
-            onChange={(e) => setUserAccount({...userAccount, name: e.target.value})}
-            className="text-xs font-bold bg-white px-2 py-1 rounded border border-slate-300 w-28"
-            placeholder="Nama Anda"
-          />
-        </div>
-        <button 
-          onClick={() => setUserAccount({...userAccount, isPublic: !userAccount.isPublic})}
-          className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${
-            userAccount.isPublic ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
-          }`}
-        >
-          {userAccount.isPublic ? "🌎 Public Account" : "🔒 Private Account"}
-        </button>
-      </div>
-    </div>
-
-    {/* Kategori Leaderboard */}
-    <div className="flex gap-2 overflow-x-auto pb-2">
-      {["overall", "critical_thinking", "public_speaking", "consistent", "active"].map((cat) => (
-        <button
-          key={cat}
-          onClick={() => setLeaderboardTab(cat)}
-          className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
-            leaderboardTab === cat ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {cat.replace('_', ' ')}
-        </button>
-      ))}
-    </div>
-
-    {/* Tabel Leaderboard */}
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b text-xs text-slate-400 font-semibold">
-            <th className="py-3 px-4">Rank</th>
-            <th className="py-3 px-4">Nama</th>
-            <th className="py-3 px-4">Skor Rata-Rata</th>
-            <th className="py-3 px-4">Total Latihan</th>
-            <th className="py-3 px-4">Streak</th>
-          </tr>
-        </thead>
-        <tbody className="text-sm text-slate-700">
-          {mockLeaderboard.overall.map((row) => (
-            <tr key={row.rank} className="border-b hover:bg-slate-50/80 transition-colors">
-              <td className="py-3 px-4 font-bold">
-                {row.rank === 1 ? "🥇 1" : row.rank === 2 ? "🥈 2" : row.rank === 3 ? "🥉 3" : row.rank}
-              </td>
-              <td className="py-3 px-4 font-semibold text-slate-800">{row.name}</td>
-              <td className="py-3 px-4 font-bold text-rose-600">{row.score}</td>
-              <td className="py-3 px-4">{row.practices} sesi</td>
-              <td className="py-3 px-4 text-orange-500 font-medium">🔥 {row.streak} hari</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-
-    {!userAccount.isPublic && (
-      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
-        🔒 Akun Anda berstatus <b>Private</b>. Statistik dan nama Anda disembunyikan dari leaderboard publik, namun progress latihan tetap tersimpan aman di perangkat Anda.
-      </div>
-    )}
-  </div>
-)}
     </div>
   );
 }
