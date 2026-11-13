@@ -44,7 +44,9 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { evaluateSpeech } from "@/lib/aiClient";
+import { evaluateSpeechV2 } from "@/lib/aiClient";
+import { analyze, countFillers, tokenize, CT_LABELS, PS_LABELS } from "@/lib/analysis/index";
+import type { Level } from "@/lib/analysis/index";
 
 // ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
@@ -176,7 +178,10 @@ const emptyEval = {
   improveText: "-",
   recommendText: "--",
   wpm: 0,
-  fillerWordsDetected: [] as string[]
+  fillers: [] as { term: string; count: number }[],
+  flags: null as null | { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean },
+  evidence: [] as { label: string; score: number; quote: string; verified: boolean }[],
+  status: "idle"
 };
 
 export default function PublicSpeakingApp() {
@@ -384,13 +389,7 @@ export default function PublicSpeakingApp() {
     const words = cleanText.split(/\s+/).filter(w => w.length > 0);
     const wordCount = words.length;
 
-    const fillerPhrases = ["nggak bisa", "gak bisa", "bingung", "anu", "kayak", "mungkin", "ee", "hmm", "enggak tahu"];
-    let count = 0;
-    fillerPhrases.forEach(p => {
-      const matches = cleanText.match(new RegExp(p, "g"));
-      if (matches) count += matches.length;
-    });
-    setLiveFillers(count);
+    setLiveFillers(countFillers(tokenize(text)).total);
 
     const elapsedMinutes = (isSparringMode ? (60 - timeLeft) : (120 - timeLeft)) / 60;
     if (elapsedMinutes > 0.05) {
@@ -424,71 +423,42 @@ export default function PublicSpeakingApp() {
       return;
     }
     lastRunRef.current = { text: rawText, durationSeconds };
-    const cleanText = rawText.toLowerCase();
-    const words = cleanText.split(/\s+/).filter((w) => w.length > 0);
-    const wordCount = words.length;
 
-    const fillerPhrases = [
-      "nggak bisa", "gak bisa", "enggak bisa", "tidak bisa",
-      "nggak tahu", "gak tahu", "enggak tahu", "tidak tahu",
-      "bingung", "gimana dong", "sumpah", "entah", "pas", "agak susah", "kayak", "anu", "mungkin"
-    ];
-
-    let fillerCount = 0;
-    const detectedFillers: string[] = [];
-    fillerPhrases.forEach((phrase) => {
-      const regex = new RegExp(phrase, "g");
-      const matches = cleanText.match(regex);
-      if (matches) {
-        fillerCount += matches.length;
-        detectedFillers.push(phrase);
-      }
-    });
-
-    const finalWpm = Math.round(wordCount / (Math.max(durationSeconds, 1) / 60));
-
-    // Skor dan feedback hanya dari AI. Gagal = pesan jujur, tanpa skor bawaan, XP, atau riwayat.
+    // Tiga lapis: A (metrik) -> gerbang -> B (Gemini via proxy) -> C (agregasi). Gagal = pesan jujur, tanpa skor bawaan.
     setEvalStatus("loading");
-    let ai;
+    let r;
     try {
-      ai = await evaluateSpeech({ transcript: rawText, topic: currentTopic.title, durationSeconds });
+      r = await analyze(rawText, durationSeconds, { title: currentTopic.title, question: currentTopic.question, level: currentTopic.level as Level }, evaluateSpeechV2);
     } catch (e) {
       console.error("Penilaian AI gagal:", e);
       setEvaluation(emptyEval);
       setEvalStatus("error");
       return;
     }
+    if (r.status === "empty") {
+      setEvaluation(emptyEval);
+      setEvalStatus("empty");
+      return;
+    }
     setEvalStatus("idle");
 
-    const ct = ai.ct;
-    const ps = ai.ps;
-    const avgCT = ct.reduce((a, b) => a + b, 0) / 5;
-    const avgPS = ps.reduce((a, b) => a + b, 0) / 5;
-    const overall = Math.round(((avgCT + avgPS) / 10) * 100);
+    const { overall, ctScores: ct, psScores: ps } = r;
+    setEvaluation({
+      overall, ctScores: ct, psScores: ps,
+      goodText: r.goodText, improveText: r.improveText, recommendText: r.recommendText,
+      wpm: r.wpm, fillers: r.fillers, flags: r.flags, evidence: r.evidence, status: r.status
+    });
 
-    const newEval = {
-      overall,
-      ctScores: ct,
-      psScores: ps,
-      goodText: ai.good,
-      improveText: ai.improve,
-      recommendText: ai.recommend,
-      wpm: finalWpm,
-      fillerWordsDetected: Array.from(new Set(detectedFillers))
-    };
-
-    setEvaluation(newEval);
-
-    // GAMIFIKASI: HITUNG XP BARU (+50 XP Tiap latihan + Bonus Nilai)
-    const gainedXp = 50 + Math.round(overall / 2);
+    // XP hanya untuk ucapan yang dinilai (bukan tidak bermakna/terlalu pendek). Redesain XP: Fase 4.
+    const gainedXp = r.xpEligible ? 50 + Math.round(overall / 2) : 0;
     const newXpTotal = userXp + gainedXp;
     setUserXp(newXpTotal);
 
-    // MANAJEMEN STREAK PER HARI
+    // MANAJEMEN STREAK PER HARI (hanya sesi yang layak)
     const today = new Date().toISOString().split("T")[0];
     let newStreak = streak;
 
-    if (lastPracticeDate !== today) {
+    if (r.xpEligible && lastPracticeDate !== today) {
       if (lastPracticeDate) {
         const diffDays = Math.floor(
           (new Date(today).getTime() - new Date(lastPracticeDate).getTime()) / (1000 * 3600 * 24)
@@ -510,15 +480,15 @@ export default function PublicSpeakingApp() {
         overall,
         ctScores: ct,
         psScores: ps,
-        transcript: rawText || "(Tidak ada ucapan terdeteksi)",
-        wpm: finalWpm,
-        fillers: fillerCount
+        transcript: rawText,
+        wpm: r.wpm,
+        fillers: r.xpEligible ? r.fillerCount : null // null agar sesi yang tidak dinilai tidak membuka badge "No Filler"
       },
       ...history,
     ];
 
     setHistory(newHistory);
-    saveToStorage(newHistory, newStreak, today, newXpTotal);
+    saveToStorage(newHistory, newStreak, r.xpEligible ? today : (lastPracticeDate ?? ""), newXpTotal);
   };
 
   const wordCount = transcript.trim().split(/\s+/).filter((w) => w.length > 0).length;
@@ -554,8 +524,8 @@ export default function PublicSpeakingApp() {
   }));
 
   // RADAR CHART (5 AKSIS PENTAGON)
-  const ctLabels = ["Analisis", "Evaluasi", "Inferensi", "Eksplanasi", "Regulasi Diri"];
-  const psLabels = ["Kejelasan Isi", "Kefasihan & Vokal", "Diksi", "Intonasi & Pacing", "Kepercayaan Diri"];
+  const ctLabels = CT_LABELS;
+  const psLabels = PS_LABELS;
 
   const radarData = ctLabels.map((label, idx) => {
     const ctVal = totalRecordings > 0
@@ -885,6 +855,16 @@ export default function PublicSpeakingApp() {
                   )}
                 </div>
 
+                {evaluation.flags && (
+                  <div className="flex flex-wrap gap-2 mb-4 text-xs font-bold">
+                    {evaluation.flags.gibberish && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">Tidak bermakna</span>}
+                    {evaluation.flags.offTopic && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Di luar topik</span>}
+                    {evaluation.flags.tooShort && <span className="px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">Terlalu pendek</span>}
+                    {evaluation.flags.repetitive && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Banyak pengulangan</span>}
+                    {evaluation.flags.panic && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">Dominan kata panik</span>}
+                  </div>
+                )}
+
                 {/* HIGHLIGHT FEEDBACK WPM & FILLER WORDS */}
                 {evaluation.wpm > 0 && (
                   <div className="grid grid-cols-2 gap-3 mb-4">
@@ -895,8 +875,11 @@ export default function PublicSpeakingApp() {
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
                       <span className="text-xs font-bold text-amber-800 block">Filler Terdeteksi</span>
                       <span className="text-xs font-extrabold text-amber-700">
-                        {evaluation.fillerWordsDetected.length > 0 ? evaluation.fillerWordsDetected.join(", ") : "Tidak Ada 🎉"}
+                        {evaluation.fillers.length > 0
+                          ? evaluation.fillers.map((f: { term: string; count: number }) => `${f.term} ×${f.count}`).join(", ")
+                          : "Tidak terdeteksi"}
                       </span>
+                      <span className="text-[10px] text-amber-700/80 block mt-1">Perkiraan bawah: speech-to-text sering membuang eee/emm.</span>
                     </div>
                   </div>
                 )}
@@ -927,6 +910,17 @@ export default function PublicSpeakingApp() {
                       Latihan Lagi
                     </button>
                   </div>
+
+                  {evaluation.evidence.length > 0 && (
+                    <details className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <summary className="text-xs font-bold text-slate-700 cursor-pointer">Bukti dari ucapanmu ({evaluation.evidence.length})</summary>
+                      <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
+                        {evaluation.evidence.map((e: { label: string; score: number; quote: string; verified: boolean }, i: number) => (
+                          <li key={i}><span className="font-bold">{e.label} ({e.score}/5):</span> <span className="italic">&ldquo;{e.quote}&rdquo;</span></li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
 
               </div>
