@@ -1,26 +1,113 @@
 @import "tailwindcss";
 
+/*
+  Token desain OddMind (arah "Naskah"): satu-satunya sumber warna, huruf, radius, bayangan, dan gerak.
+  Komponen memakai utility turunan (bg-paper, text-ink, border-line, rounded-panel, shadow-lift, font-display),
+  bukan nilai langsung. Semua pasangan teks/latar sudah diperiksa >= 4,5:1 (WCAG AA).
+  Hanya tema terang: konteks utama siswa adalah ruangan terang di ponsel.
+*/
+@theme {
+  --color-paper: #f6f4ef; /* alas halaman: abu hangat, bukan krem pekat */
+  --color-surface: #ffffff; /* bidang terangkat, hanya untuk dok dan panel */
+  --color-ink: #17191c; /* teks utama dan garis fokus */
+  --color-ink-2: #4b4f55; /* teks sekunder */
+  --color-ink-3: #6b6f76; /* keterangan; masih 4,59:1 di atas paper */
+  --color-line: #d9d4c7;
+  --color-line-strong: #b9b2a0;
+  --color-accent: #c0391a; /* satu aksen: aksi utama (rekam) dan keadaan aktif */
+  --color-accent-hover: #a32f14;
+  --color-accent-soft: #fbe9e3;
+  --color-mark: #ffe16b; /* stabilo: hanya menandai kutipan bukti dari ucapan siswa */
+  --color-good: #1f6b43;
+  --color-good-soft: #e3f1e8;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fbefd5;
+  --color-bad: #a32424;
+  --color-bad-soft: #f8e3e1;
+
+  --font-display: var(--font-literata), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-public), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --radius-field: 6px; /* tombol, isian, lencana */
+  --radius-panel: 12px; /* panel dan dok */
+
+  --shadow-lift: 0 1px 2px rgb(23 25 28 / 0.08), 0 8px 20px -10px rgb(23 25 28 / 0.28); /* satu tingkat: hanya dok rekam dan dialog */
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --nav-h: 4rem; /* tinggi bilah tab bawah di ponsel; dok rekam menempel tepat di atasnya */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-paper);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+/* Permukaan browser yang ikut membawa desain */
+::selection {
+  background: var(--color-mark);
+  color: var(--color-ink);
+}
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+input,
+select,
+button {
+  accent-color: var(--color-accent);
+}
+summary {
+  cursor: pointer;
+}
+summary::marker {
+  color: var(--color-ink-3);
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+mark.stabilo {
+  background: linear-gradient(transparent 12%, var(--color-mark) 12%, var(--color-mark) 92%, transparent 92%);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Gerak: satu momen yang dirancang (hasil evaluasi muncul), dan mati total bila pengguna meminta */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise-in {
+  animation: rise-in 220ms var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,21 +1,18 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Literata, Public_Sans } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Judul dan pertanyaan: Literata, serif yang dirancang untuk dibaca di layar ponsel. Isi dan antarmuka: Public Sans.
+// next/font mengunduh saat build dan menyajikan dari domain sendiri: tidak ada permintaan runtime ke Google.
+const literata = Literata({ variable: "--font-literata", subsets: ["latin"], display: "swap" });
+const publicSans = Public_Sans({ variable: "--font-public", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "OddMind",
-  description: "AI Public Speaking & Critical Thinking Guide",
+  description: "Latihan bicara dan berpikir kritis. Rekam jawabanmu, dapat penilaian berbukti dari ucapanmu sendiri.",
 };
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({
   children,
@@ -23,11 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="id" className={`${literata.variable} ${publicSans.variable} h-full antialiased`}>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }
