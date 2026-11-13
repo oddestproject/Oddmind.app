@@ -46,6 +46,7 @@ export function capsFor(flags: Flags, m: Metrics, level: Level) {
   if (flags.repetitive) { caps.push(CAPS.repetitive); notes.push("Ucapan didominasi pengulangan."); }
   if (flags.offTopic) { caps.push(CAPS.offTopic); notes.push("Ucapan tidak menjawab pertanyaan kartu."); }
   if (flags.panic) { caps.push(CAPS.panic); notes.push("Ucapan didominasi kata panik atau ragu."); }
+  if (flags.rebuttalMissed) notes.push("Ucapan tidak menyanggah klaim AI."); // tanpa batas overall: hanya Evaluasi & Inferensi yang dibatasi
   return { cap: caps.length ? Math.min(...caps) : 100, notes };
 }
 
@@ -56,7 +57,7 @@ export function emptyResult(m: Metrics): AnalysisResult {
   return {
     ...base(m), status: "empty", overall: 0, ctScores: ones(), psScores: ones(),
     flags: { gibberish: false, offTopic: false, tooShort: false, repetitive: false, panic: false },
-    gateNotes: [], xpEligible: false, goodText: "", improveText: "", recommendText: "", evidence: [], relevance: null,
+    gateNotes: [], xpEligible: false, goodText: "", improveText: "", recommendText: "", evidence: [], relevance: null, rebuttal: null,
   };
 }
 
@@ -69,12 +70,16 @@ export function gatedResult(m: Metrics, level: Level): AnalysisResult {
     flags, gateNotes: notes, xpEligible: false,
     goodText: "Belum ada yang bisa dinilai dari ucapan ini.",
     improveText: `${notes.join(" ")} Coba jawab 3-4 kalimat dengan pola Point, Reason, Example.`,
-    recommendText: `Tonton: ${VIDEO_MODULES[3]}`, evidence: [], relevance: null,
+    recommendText: `Tonton: ${VIDEO_MODULES[3]}`, evidence: [], relevance: null, rebuttal: null,
   };
 }
 
-export function finalize(m: Metrics, level: Level, j: Judgement): AnalysisResult {
-  const flags = flagsFor(m, j);
+// claim = pernyataan AI yang harus disanggah (mode debat); tanpa claim, perilaku sama seperti mode biasa.
+export function finalize(m: Metrics, level: Level, j: Judgement, claim?: string): AnalysisResult {
+  const debate = !!claim;
+  // Penilai yang tidak mengisi rebuttal pada mode debat dianggap tidak menyanggah (jujur, bukan nilai karangan).
+  const reb = debate ? (j.rebuttal ?? { addressed: false, quality: 0, evidence_quote: "" }) : null;
+  const flags = { ...flagsFor(m, j), ...(reb && !reb.addressed ? { rebuttalMissed: true } : {}) };
   let ct: number[] = CT_KEYS.map((k) => j.ct[k].score);
   let ps: number[] = PS_KEYS.map((k) => j.ps[k].score);
 
@@ -83,6 +88,10 @@ export function finalize(m: Metrics, level: Level, j: Judgement): AnalysisResult
     ps = ones();
   } else {
     if (flags.offTopic) ct = ct.map((s) => Math.min(s, 2));
+    if (reb) {
+      if (!reb.addressed) { ct[1] = Math.min(ct[1], 2); ct[2] = Math.min(ct[2], 2); } // Evaluasi & Inferensi
+      else ct[1] = Math.min(ct[1], Math.max(reb.quality, 1)); // Evaluasi tidak melebihi mutu sanggahan
+    }
     ps[1] = Math.min(ps[1], fluencyCeiling(per100(m.fillerCount + m.repetitionCount, m.words)));
     ps[3] = Math.min(ps[3], paceCeiling(m.wpm));
     ps[4] = Math.min(ps[4], hedgeCeiling(per100(m.hedgeCount, m.words)));
@@ -92,6 +101,7 @@ export function finalize(m: Metrics, level: Level, j: Judgement): AnalysisResult
   const evidence: Evidence[] = [
     ...CT_KEYS.map((k, i) => ({ label: CT_LABELS[i], score: ct[i], quote: j.ct[k].evidence_quote, verified: j.ct[k].verified !== false })),
     ...PS_KEYS.map((k, i) => ({ label: PS_LABELS[i], score: ps[i], quote: j.ps[k].evidence_quote, verified: j.ps[k].verified !== false })),
+    ...(reb ? [{ label: "Menyanggah klaim AI", score: reb.quality, quote: reb.evidence_quote, verified: reb.verified !== false }] : []),
   ].filter((e) => e.quote.trim() && e.score >= 3);
 
   return {
@@ -100,5 +110,6 @@ export function finalize(m: Metrics, level: Level, j: Judgement): AnalysisResult
     goodText: j.strengths.join(" "),
     improveText: [...j.improvements, ...notes].join(" "),
     recommendText: `Tonton: ${j.recommended_module}`, evidence, relevance: j.relevance,
+    rebuttal: reb && claim ? { ...reb, claim } : null,
   };
 }

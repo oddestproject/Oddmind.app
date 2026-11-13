@@ -4,16 +4,22 @@ import { computeMetrics } from "./metrics.ts";
 import { emptyResult, finalize, gatedResult, MIN_WORDS_ABSOLUTE } from "./scoring.ts";
 import type { AnalysisResult, Judgement, Level, Topic } from "./types.ts";
 
-export type JudgeInput = { transcript: string; topicTitle: string; topicQuestion: string; level: Level; durationSeconds: number };
+export type JudgeInput = {
+  transcript: string; topicTitle: string; topicQuestion: string; level: Level; durationSeconds: number;
+  rebuttalClaim?: string; // mode debat: klaim AI yang harus disanggah, dikirim ke penilai sebagai konteks
+};
 export type Judge = (input: JudgeInput) => Promise<Judgement>;
 
-export async function analyze(transcript: string, durationSeconds: number, topic: Topic, judge: Judge): Promise<AnalysisResult> {
+export async function analyze(transcript: string, durationSeconds: number, topic: Topic, judge: Judge, rebuttalClaim?: string): Promise<AnalysisResult> {
   const m = computeMetrics(transcript, durationSeconds, topic);
   if (m.words === 0) return emptyResult(m); // kosong: tidak memanggil AI sama sekali
   if (m.words < MIN_WORDS_ABSOLUTE || m.isGibberishLocal) return gatedResult(m, topic.level);
 
-  const j = await judge({ transcript: transcript.trim(), topicTitle: topic.title, topicQuestion: topic.question, level: topic.level, durationSeconds });
-  return finalize(m, topic.level, j);
+  const j = await judge({
+    transcript: transcript.trim(), topicTitle: topic.title, topicQuestion: topic.question, level: topic.level, durationSeconds,
+    ...(rebuttalClaim ? { rebuttalClaim } : {}),
+  });
+  return finalize(m, topic.level, j, rebuttalClaim);
 }
 
 export * from "./types.ts";

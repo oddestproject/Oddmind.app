@@ -1,8 +1,8 @@
 // Proxy OddMind -> Gemini. Key hanya ada sebagai secret platform; isi transkrip tidak disimpan dan tidak dicatat.
 // shortcut: cek Origin bisa dipalsukan klien non-browser, jadi pertahanan utama adalah batas laju + kuota/anggaran di sisi Google;
 // batas laju Cloudflare per lokasi dan tidak ketat (uji 2026-11-13: tidak menolak apa pun), upgrade ke Durable Object bila perlu.
-import { MAX_BODY, parseInput, parseResult, extractText, parseInputV2, checkJudgement } from "./validate.ts";
-import { SYSTEM_V2, FEWSHOT, SCHEMA_V2, buildInputV2 } from "./prompt.ts";
+import { MAX_BODY, parseInput, parseResult, extractText, parseInputV2, checkJudgement, parseDebateInput, checkClaim } from "./validate.ts";
+import { SYSTEM_V2, FEWSHOT, SCHEMA_V2, buildInputV2, REBUTTAL_RULES, SCHEMA_V2_DEBATE, SYSTEM_DEBATE, SCHEMA_DEBATE, buildDebateInput } from "./prompt.ts";
 
 interface Limiter { limit(o: { key: string }): Promise<{ success: boolean }> }
 interface Env { GEMINI_API_KEY: string; GEMINI_MODEL: string; GEMINI_TEMPERATURE?: string; ALLOWED_ORIGINS: string; LIMIT_IP: Limiter; LIMIT_ALL: Limiter }
@@ -65,7 +65,7 @@ export default {
     if (req.method === "OPTIONS")
       return new Response(null, { status: 204, headers: { ...cors, "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400" } });
     const path = new URL(req.url).pathname;
-    if (path !== "/evaluate" && path !== "/v2/evaluate") return fail(404, "not_found", "Endpoint tidak ada.", cors);
+    if (path !== "/evaluate" && path !== "/v2/evaluate" && path !== "/debate") return fail(404, "not_found", "Endpoint tidak ada.", cors);
     if (req.method !== "POST") return fail(405, "method_not_allowed", "Gunakan POST.", cors);
 
     const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
@@ -78,15 +78,32 @@ export default {
     try { body = JSON.parse(raw); } catch { return fail(400, "bad_request", "JSON tidak valid.", cors); }
 
     try {
+      if (path === "/debate") {
+        const input = parseDebateInput(body);
+        if ("status" in input) return fail(input.status, input.code, input.message, cors);
+        // Satu kali coba ulang bila skema/relevansi tidak lolos; gagal lagi -> 502. Tidak ada pernyataan cadangan.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const text = await callGemini(env, SYSTEM_DEBATE, buildDebateInput(input), SCHEMA_DEBATE, 500, 15000);
+          let parsed: unknown = null;
+          try { parsed = text ? JSON.parse(text) : null; } catch { /* dicoba ulang */ }
+          const claim = parsed && checkClaim(parsed, input);
+          if (claim) return json(200, { claim }, cors);
+        }
+        return fail(502, "bad_upstream_output", "Jawaban AI tidak dapat dipakai.", cors);
+      }
+
       if (path === "/v2/evaluate") {
         const input = parseInputV2(body);
         if ("status" in input) return fail(input.status, input.code, input.message, cors);
+        const debate = !!input.rebuttalClaim;
         // Satu kali coba ulang bila JSON/skema/kutipan tidak lolos; gagal lagi -> 502, bukan skor karangan.
         for (let attempt = 0; attempt < 2; attempt++) {
-          const text = await callGemini(env, `${SYSTEM_V2}\n\n${FEWSHOT}`, buildInputV2(input), SCHEMA_V2, 3000, 25000);
+          const text = await callGemini(
+            env, `${SYSTEM_V2}${debate ? REBUTTAL_RULES : ""}\n\n${FEWSHOT}`, buildInputV2(input), debate ? SCHEMA_V2_DEBATE : SCHEMA_V2, 3000, 25000,
+          );
           let parsed: unknown = null;
           try { parsed = text ? JSON.parse(text) : null; } catch { /* dicoba ulang */ }
-          const checked = parsed && checkJudgement(parsed, input.transcript);
+          const checked = parsed && checkJudgement(parsed, input.transcript, debate);
           if (checked) return json(200, checked, cors);
         }
         return fail(502, "bad_upstream_output", "Jawaban AI tidak dapat dipakai.", cors);

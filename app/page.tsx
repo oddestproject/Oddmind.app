@@ -44,7 +44,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { evaluateSpeechV2 } from "@/lib/aiClient";
+import { evaluateSpeechV2, requestDebate } from "@/lib/aiClient";
+import { createDebateCache, createLimiter } from "@/lib/debate";
 import { analyze, countFillers, tokenize, CT_LABELS, PS_LABELS } from "@/lib/analysis/index";
 import type { Level } from "@/lib/analysis/index";
 import { calcXp, levelFor, dayKey } from "@/lib/progress";
@@ -185,7 +186,8 @@ const emptyEval = {
   recommendText: "--",
   wpm: 0,
   fillers: [] as { term: string; count: number }[],
-  flags: null as null | { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean },
+  flags: null as null | { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean; rebuttalMissed?: boolean },
+  rebuttal: null as null | { claim: string; addressed: boolean; quality: number; evidence_quote: string; verified?: boolean },
   evidence: [] as { label: string; score: number; quote: string; verified: boolean }[],
   status: "idle"
 };
@@ -238,7 +240,11 @@ export default function PublicSpeakingApp() {
   };
   // GAMIFIKASI: XP & LEVEL & BADGES & QUESTS
   const [isSparringMode, setIsSparringMode] = useState(false);
-  const [sparringOpini, setSparringOpini] = useState("");
+  // Lawan debat dari AI untuk kartu aktif. Klaim di-cache per kartu selama halaman terbuka; panggilan dibatasi frekuensinya.
+  const [debate, setDebate] = useState<{ cardId: string; status: "loading" | "ready" | "error"; claim: string; error: string }>({ cardId: "", status: "loading", claim: "", error: "" });
+  const debateCache = useRef(createDebateCache());
+  const debateLimiter = useRef(createLimiter());
+  const activeClaimRef = useRef(""); // klaim yang dilawan saat rekaman dimulai; kosong = mode biasa
 
   // COMPARISON SIDE BY SIDE: pilihan pengguna; bila kosong dipakai sesi valid tertua dan terbaru
   const [compareId1, setCompareId1] = useState("");
@@ -275,7 +281,7 @@ export default function PublicSpeakingApp() {
     setCurrentTopic(random);
 
     if (isSparringMode) {
-      generateSparringOpini(random.title);
+      loadDebate(random);
     }
   };
 
@@ -283,16 +289,31 @@ export default function PublicSpeakingApp() {
     const nextState = !isSparringMode;
     setIsSparringMode(nextState);
     if (nextState) {
-      generateSparringOpini(currentTopic.title);
+      loadDebate(currentTopic);
     }
   };
 
-  const generateSparringOpini = (topicTitle: string) => {
-    const opinions: Record<string, string> = {
-      "AI di Sekolah": "Menurut AI, penggunaan ChatGPT harus dilarang total di sekolah karena membuat siswa malas berpikir dan menghancurkan daya kritis.",
-      "PR Sekolah": "Menurut AI, PR sekolah harus dihapuskan 100% karena hanya memberikan stres tanpa bukti efektivitas nyata.",
-    };
-    setSparringOpini(opinions[topicTitle] || `Menurut AI, topik '${topicTitle}' harus disetujui tanpa keraguan demi efisiensi masa depan.`);
+  // Memuat klaim AI untuk satu kartu. Cache hit tidak memanggil jaringan dan tidak dihitung pembatas frekuensi.
+  const loadDebate = async (topic: (typeof topicDatabase)[number]) => {
+    const cached = debateCache.current.get(topic.id);
+    if (cached) {
+      setDebate({ cardId: topic.id, status: "ready", claim: cached, error: "" });
+      return;
+    }
+    const gate = debateLimiter.current.check();
+    if (!gate.ok) {
+      setDebate({ cardId: topic.id, status: "error", claim: "", error: `Terlalu cepat. Tunggu ${Math.ceil(gate.waitMs / 1000)} detik lalu coba lagi.` });
+      return;
+    }
+    setDebate({ cardId: topic.id, status: "loading", claim: "", error: "" });
+    try {
+      const claim = await requestDebate({ topicId: topic.id, title: topic.title, question: topic.question, level: topic.level as Level, category: topic.category });
+      debateCache.current.set(topic.id, claim);
+      setDebate((p) => (p.cardId === topic.id ? { cardId: topic.id, status: "ready", claim, error: "" } : p)); // abaikan bila kartu sudah berganti
+    } catch (e) {
+      console.error("Lawan debat gagal dimuat:", e);
+      setDebate((p) => (p.cardId === topic.id ? { cardId: topic.id, status: "error", claim: "", error: "Lawan debat gagal dimuat." } : p));
+    }
   };
 
   const toggleRecording = () => {
@@ -303,7 +324,11 @@ export default function PublicSpeakingApp() {
     }
   };
 
+  const debateReady = debate.cardId === currentTopic.id && debate.status === "ready";
+
   const startRecording = () => {
+    if (isSparringMode && !debateReady) return; // mode debat butuh klaim AI yang siap
+    activeClaimRef.current = isSparringMode ? debate.claim : "";
     setIsRecording(true);
     isRecordingRef.current = true;
     transcriptRef.current = "";
@@ -386,12 +411,13 @@ export default function PublicSpeakingApp() {
       return;
     }
     lastRunRef.current = { text: rawText, durationSeconds };
+    const claim = activeClaimRef.current; // klaim yang dilawan pada sesi ini (kosong = mode biasa)
 
     // Tiga lapis: A (metrik) -> gerbang -> B (Gemini via proxy) -> C (agregasi). Gagal = pesan jujur, tanpa skor bawaan.
     setEvalStatus("loading");
     let r;
     try {
-      r = await analyze(rawText, durationSeconds, { title: currentTopic.title, question: currentTopic.question, level: currentTopic.level as Level }, evaluateSpeechV2);
+      r = await analyze(rawText, durationSeconds, { title: currentTopic.title, question: currentTopic.question, level: currentTopic.level as Level }, evaluateSpeechV2, claim || undefined);
     } catch (e) {
       console.error("Penilaian AI gagal:", e);
       setEvaluation(emptyEval);
@@ -409,7 +435,7 @@ export default function PublicSpeakingApp() {
     setEvaluation({
       overall, ctScores: ct, psScores: ps,
       goodText: r.goodText, improveText: r.improveText, recommendText: r.recommendText,
-      wpm: r.wpm, fillers: r.fillers, flags: r.flags, evidence: r.evidence, status: r.status
+      wpm: r.wpm, fillers: r.fillers, flags: r.flags, evidence: r.evidence, status: r.status, rebuttal: r.rebuttal
     });
 
     // XP dan streak hanya untuk sesi valid (aturan di lib/progress.ts). Dibaca dari store terbaru, bukan closure timer yang basi.
@@ -424,7 +450,7 @@ export default function PublicSpeakingApp() {
         topicId: currentTopic.id,
         topic: currentTopic.title,
         level: currentTopic.level,
-        mode: isSparringMode ? "debat" : "biasa",
+        mode: claim ? "debat" : "biasa",
         durationSec: Math.round(durationSeconds),
         words: r.words,
         wpm: r.wpm,
@@ -438,6 +464,10 @@ export default function PublicSpeakingApp() {
         relevance: r.relevance,
         feedback: { good: r.goodText, improve: r.improveText, recommend: r.recommendText },
         transcript: rawText,
+        // Sesi debat menyimpan klaim AI-nya; tanpa penilaian AI (sesi tak layak) sanggahan dicatat belum disentuh.
+        rebuttal: claim
+          ? { claim, addressed: r.rebuttal?.addressed ?? false, quality: r.rebuttal?.quality ?? 0, evidence_quote: r.rebuttal?.evidence_quote ?? "", verified: r.rebuttal?.verified !== false }
+          : undefined,
       },
       gainedXp,
     );
@@ -577,15 +607,20 @@ export default function PublicSpeakingApp() {
                     <Flame className="w-3.5 h-3.5" /> TODAY'S CHALLENGE
                   </span>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={toggleSparringMode} 
-                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all ${
+                    <button
+                      onClick={toggleSparringMode}
+                      disabled={isRecording}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         isSparringMode ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
                       }`}
                     >
                       <Swords className="w-3.5 h-3.5" /> {isSparringMode ? "Mode Sparring Active" : "Mode Debat AI"}
                     </button>
-                    <button onClick={() => setCurrentTopic(topicDatabase[30])} className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg">
+                    <button
+                      onClick={() => { const t = topicDatabase[30]; setCurrentTopic(t); if (isSparringMode) loadDebate(t); }}
+                      disabled={isRecording}
+                      className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Ambil
                     </button>
                   </div>
@@ -594,9 +629,21 @@ export default function PublicSpeakingApp() {
                 {isSparringMode ? (
                   <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
                     <h4 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-1">
-                      <Swords className="w-4 h-4" /> OPINI SANGGAHAN AI (Waktu Sanggah: 1 Menit)
+                      <Swords className="w-4 h-4" /> OPINI SANGGAHAN AI (dibuat AI · Waktu Sanggah: 1 Menit)
                     </h4>
-                    <p className="text-sm font-semibold text-rose-900 italic">"{sparringOpini || "Sanggah pendapat AI ini!"}"</p>
+                    {debate.cardId !== currentTopic.id || debate.status === "loading" ? (
+                      <p role="status" className="text-sm font-semibold text-rose-900">Menyiapkan lawan debat…</p>
+                    ) : debate.status === "error" ? (
+                      <div role="alert" className="space-y-2">
+                        <p className="text-sm font-semibold text-rose-900">{debate.error}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => loadDebate(currentTopic)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700">Coba lagi</button>
+                          <button onClick={() => setIsSparringMode(false)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white border border-rose-300 text-rose-800 hover:bg-rose-100">Kembali ke mode biasa</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold text-rose-900 italic">&ldquo;{debate.claim}&rdquo;</p>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -699,13 +746,17 @@ export default function PublicSpeakingApp() {
 
                 <button
                   onClick={toggleRecording}
-                  className={`w-full py-4 text-white font-bold text-base rounded-2xl flex items-center justify-center gap-3 transition-all ${
+                  disabled={!isRecording && isSparringMode && !debateReady}
+                  className={`w-full py-4 text-white font-bold text-base rounded-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isRecording ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-rose-500 hover:bg-rose-600"
                   }`}
                 >
                   <Mic className="w-5 h-5" />
                   {isRecording ? "Hentikan & Evaluasi AI" : "Mulai Rekam Suara"}
                 </button>
+                {!isRecording && isSparringMode && !debateReady && (
+                  <p className="mt-2 text-xs font-semibold text-amber-700">Rekam aktif setelah lawan debat siap, atau kembali ke mode biasa.</p>
+                )}
                 <p className="mt-3 text-xs text-slate-500">
                   Privasi: browser mengubah suaramu menjadi teks lewat layanan pengenalan suara bawaannya (di Chrome, audio diproses server Google), lalu teks itu dikirim ke layanan AI (Google Gemini) untuk dinilai. Jangan menyebut data pribadi.
                 </p>
@@ -806,6 +857,15 @@ export default function PublicSpeakingApp() {
                     {evaluation.flags.tooShort && <span className="px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">Terlalu pendek</span>}
                     {evaluation.flags.repetitive && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Banyak pengulangan</span>}
                     {evaluation.flags.panic && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">Dominan kata panik</span>}
+                    {evaluation.flags.rebuttalMissed && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Tidak menyanggah klaim AI</span>}
+                  </div>
+                )}
+
+                {evaluation.rebuttal && (
+                  <div className="p-3 mb-4 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+                    <span className="font-bold text-rose-800 block">Sanggahan terhadap klaim AI</span>
+                    <span className="block text-rose-900">{evaluation.rebuttal.addressed ? `Klaim disentuh · mutu sanggahan ${evaluation.rebuttal.quality}/5` : "Klaim AI belum disentuh; Evaluasi dan Inferensi dibatasi."}</span>
+                    {evaluation.rebuttal.evidence_quote && <span className="block italic text-rose-800">&ldquo;{evaluation.rebuttal.evidence_quote}&rdquo;</span>}
                   </div>
                 )}
 
@@ -1159,6 +1219,12 @@ export default function PublicSpeakingApp() {
                             <p>{h.words} kata · {h.wpm} WPM · {h.fillerCount} filler{h.fillers.length ? ` (${h.fillers.slice(0, 5).map((f) => `${f.term} ×${f.count}`).join(", ")})` : ""}</p>
                             {h.feedback.good && <p><span className="font-bold text-emerald-700">Sudah bagus:</span> {h.feedback.good}</p>}
                             {h.feedback.improve && <p><span className="font-bold text-rose-700">Perlu ditingkatkan:</span> {h.feedback.improve}</p>}
+                            {h.rebuttal && (
+                              <p>
+                                <span className="font-bold text-rose-700">Klaim AI yang dilawan:</span> &ldquo;{h.rebuttal.claim}&rdquo;{" "}
+                                <span className="font-bold">{h.rebuttal.addressed ? `(disentuh, mutu ${h.rebuttal.quality}/5)` : "(belum disentuh)"}</span>
+                              </p>
+                            )}
                             {h.transcript && <p className="italic">&ldquo;{h.transcript}&rdquo;</p>}
                           </div>
                         </details>

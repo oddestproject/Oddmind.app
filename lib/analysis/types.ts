@@ -17,7 +17,10 @@ export type PsKey = (typeof PS_KEYS)[number];
 export type Level = "Pemula" | "Menengah" | "Mahir" | "Pakar";
 
 export type Dim = { score: number; evidence_quote: string; reason: string; verified?: boolean };
+// Mode debat: apakah siswa menanggapi klaim AI, seberapa baik (0-5), dan kutipan buktinya.
+export type Rebuttal = { addressed: boolean; quality: number; evidence_quote: string; verified?: boolean };
 export type Judgement = {
+  rebuttal?: Rebuttal; // hanya ada bila permintaan menyertakan klaim AI
   relevance: number; // 0-5
   is_gibberish: boolean;
   is_off_topic: boolean;
@@ -49,7 +52,7 @@ export type Metrics = {
   topicOverlap: number; // sinyal lemah; penentu relevansi tetap Gemini
 };
 
-export type Flags = { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean };
+export type Flags = { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean; rebuttalMissed?: boolean };
 export type Evidence = { label: string; score: number; quote: string; verified: boolean };
 
 export type AnalysisResult = {
@@ -69,4 +72,5 @@ export type AnalysisResult = {
   recommendText: string;
   evidence: Evidence[];
   relevance: number | null;
+  rebuttal: (Rebuttal & { claim: string }) | null; // null di mode biasa atau saat sesi tidak memanggil AI
 };
