@@ -44,6 +44,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import { evaluateSpeech } from "@/lib/aiClient";
 
 // ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
@@ -167,6 +168,17 @@ const topicDatabase = [
   { id: "Q100", level: "Pakar", category: "Global", title: "Masa Depan Dunia", question: "Menurutmu, apa tantangan terbesar yang akan dihadapi generasi muda dalam 20 tahun ke depan?" }
 ];
 
+const emptyEval = {
+  overall: "--",
+  ctScores: [1, 1, 1, 1, 1],
+  psScores: [1, 1, 1, 1, 1],
+  goodText: "Lakukan latihan untuk memulai evaluasi otomatis dari AI.",
+  improveText: "-",
+  recommendText: "--",
+  wpm: 0,
+  fillerWordsDetected: [] as string[]
+};
+
 export default function PublicSpeakingApp() {
   const [activeTab, setActiveTab] = useState<"latihan" | "rapor" | "riwayat" | "video" | "leaderboard">("latihan");
   const [currentTopic, setCurrentTopic] = useState(topicDatabase[0]);
@@ -225,19 +237,16 @@ export default function PublicSpeakingApp() {
   const [livePaceStatus, setLivePaceStatus] = useState<"Ideal" | "Terlalu Cepat" | "Terlalu Lambat">("Ideal");
   const [liveWpm, setLiveWpm] = useState(0);
 
-  const [evaluation, setEvaluation] = useState<any>({
-    overall: "--",
-    ctScores: [1, 1, 1, 1, 1],
-    psScores: [1, 1, 1, 1, 1],
-    goodText: "Lakukan latihan untuk memulai evaluasi otomatis dari AI.",
-    improveText: "-",
-    recommendText: "--",
-    wpm: 0,
-    fillerWordsDetected: []
-  });
+  const [evaluation, setEvaluation] = useState<any>(emptyEval);
+  const [evalStatus, setEvalStatus] = useState<"idle" | "loading" | "error" | "empty">("idle");
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
+  // Ref agar timer (closure lama) tetap membaca transkrip, waktu mulai, dan status rekam terbaru.
+  const transcriptRef = useRef("");
+  const startedAtRef = useRef(0);
+  const isRecordingRef = useRef(false);
+  const lastRunRef = useRef<{ text: string; durationSeconds: number } | null>(null);
 
   // LOAD DATA & CEK STREAK
   useEffect(() => {
@@ -328,6 +337,11 @@ export default function PublicSpeakingApp() {
 
   const startRecording = () => {
     setIsRecording(true);
+    isRecordingRef.current = true;
+    transcriptRef.current = "";
+    startedAtRef.current = Date.now();
+    setEvaluation(emptyEval);
+    setEvalStatus("idle");
     setTimeLeft(isSparringMode ? 60 : 120);
     setTranscript("");
     setLiveFillers(0);
@@ -345,6 +359,7 @@ export default function PublicSpeakingApp() {
         for (let i = 0; i < event.results.length; i++) {
           currentText += event.results[i][0].transcript;
         }
+        transcriptRef.current = currentText;
         setTranscript(currentText);
         analyzeLiveMetrics(currentText);
       };
@@ -389,17 +404,26 @@ export default function PublicSpeakingApp() {
   };
 
   const stopRecording = () => {
+    if (!isRecordingRef.current) return; // timer bisa memanggil dua kali (StrictMode); cegah penilaian ganda
+    isRecordingRef.current = false;
     setIsRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
 
-    evaluateTranscript(transcript);
+    evaluateTranscript(transcriptRef.current, (Date.now() - startedAtRef.current) / 1000);
   };
 
-  const evaluateTranscript = (text: string) => {
+  const evaluateTranscript = async (text: string, durationSeconds: number) => {
     const rawText = text.trim();
+    if (!rawText) {
+      // Tanpa ucapan tidak ada yang dinilai: tidak ada skor, XP, streak, maupun riwayat.
+      setEvaluation(emptyEval);
+      setEvalStatus("empty");
+      return;
+    }
+    lastRunRef.current = { text: rawText, durationSeconds };
     const cleanText = rawText.toLowerCase();
     const words = cleanText.split(/\s+/).filter((w) => w.length > 0);
     const wordCount = words.length;
@@ -421,43 +445,23 @@ export default function PublicSpeakingApp() {
       }
     });
 
-    const elapsedMinutes = (isSparringMode ? (60 - timeLeft) : (120 - timeLeft)) / 60 || 1;
-    const finalWpm = Math.round(wordCount / elapsedMinutes);
+    const finalWpm = Math.round(wordCount / (Math.max(durationSeconds, 1) / 60));
 
-    let ct = [1, 1, 1, 1, 1]; 
-    let ps = [1, 1, 1, 1, 1]; 
-    let goodText = "";
-    let improveText = "";
-    let recommendText = "";
-
-    if (wordCount < 10 || fillerCount >= 3 || cleanText.length === 0) {
-      ct = [1, 1, 1, 1, 1];
-      ps = [1, 2, 1, 2, 1];
-      goodText = "Anda sudah berani mencoba menekan tombol rekam suara.";
-      improveText = "Jawaban belum masuk ke topik. Hindari kata-kata panik seperti 'nggak bisa/nggak tahu' dan usahakan susun 1 kalimat pendapat argumen.";
-      recommendText = "Pelajari modul 'Dasar Menyusun Pendapat Pertama' di Video Hub.";
-    } else if (wordCount >= 10 && wordCount < 30) {
-      if (fillerCount === 1 || fillerCount === 2) {
-        ct = [2, 2, 2, 2, 2];
-        ps = [2, 3, 2, 3, 2];
-        goodText = "Sudah mulai menyampaikan beberapa ide dasar.";
-        improveText = "Masih terdeteksi keraguan. Kurangi kata filler/panik dan perjelas alasan utama Anda.";
-        recommendText = "Latihan modul 'Membangun Argumentasi Logis' di Video Hub.";
-      } else {
-        ct = [3, 3, 3, 3, 3];
-        ps = [3, 3, 3, 3, 3];
-        goodText = "Penyampaian cukup jelas walau masih bisa diperdalam lagi.";
-        improveText = "Tambahkan contoh nyata atau data pendukung agar argumen lebih berbobot.";
-        recommendText = "Latihan modul 'Teknik Storytelling & Contoh Konkret' di Video Hub.";
-      }
-    } else {
-      ct = [4, 4, 4, 4, 4];
-      ps = [4, 4, 4, 4, 4];
-      goodText = "Struktur ucapan sangat teratur, artikulasi baik, dan argumen tersampaikan dengan jelas.";
-      improveText = "Tingkatkan variasi intonasi vokal agar lebih persuasif di depan audiens.";
-      recommendText = "Latihan modul 'Public Speaking Masterclass' di Video Hub.";
+    // Skor dan feedback hanya dari AI. Gagal = pesan jujur, tanpa skor bawaan, XP, atau riwayat.
+    setEvalStatus("loading");
+    let ai;
+    try {
+      ai = await evaluateSpeech({ transcript: rawText, topic: currentTopic.title, durationSeconds });
+    } catch (e) {
+      console.error("Penilaian AI gagal:", e);
+      setEvaluation(emptyEval);
+      setEvalStatus("error");
+      return;
     }
+    setEvalStatus("idle");
 
+    const ct = ai.ct;
+    const ps = ai.ps;
     const avgCT = ct.reduce((a, b) => a + b, 0) / 5;
     const avgPS = ps.reduce((a, b) => a + b, 0) / 5;
     const overall = Math.round(((avgCT + avgPS) / 10) * 100);
@@ -466,9 +470,9 @@ export default function PublicSpeakingApp() {
       overall,
       ctScores: ct,
       psScores: ps,
-      goodText,
-      improveText,
-      recommendText,
+      goodText: ai.good,
+      improveText: ai.improve,
+      recommendText: ai.recommend,
       wpm: finalWpm,
       fillerWordsDetected: Array.from(new Set(detectedFillers))
     };
@@ -788,6 +792,9 @@ export default function PublicSpeakingApp() {
                   <Mic className="w-5 h-5" />
                   {isRecording ? "Hentikan & Evaluasi AI" : "Mulai Rekam Suara"}
                 </button>
+                <p className="mt-3 text-xs text-slate-500">
+                  Privasi: browser mengubah suaramu menjadi teks lewat layanan pengenalan suara bawaannya (di Chrome, audio diproses server Google), lalu teks itu dikirim ke layanan AI (Google Gemini) untuk dinilai. Jangan menyebut data pribadi.
+                </p>
               </div>
 
               {/* TRANSKRIPSI TEKS */}
@@ -817,6 +824,26 @@ export default function PublicSpeakingApp() {
                   </div>
                 </div>
 
+                {evalStatus === "loading" && (
+                  <div role="status" className="mb-4 p-3 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">Menilai ucapanmu…</div>
+                )}
+                {evalStatus === "empty" && (
+                  <div role="status" className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+                    Tidak ada ucapan terdeteksi, jadi belum ada yang bisa dinilai. Periksa izin mikrofon lalu coba rekam lagi.
+                  </div>
+                )}
+                {evalStatus === "error" && (
+                  <div role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800 flex items-center justify-between gap-3">
+                    <span>Penilaian AI sedang tidak tersedia, coba lagi.</span>
+                    <button
+                      onClick={() => lastRunRef.current && evaluateTranscript(lastRunRef.current.text, lastRunRef.current.durationSeconds)}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg whitespace-nowrap"
+                    >
+                      Coba Lagi
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex border-b border-slate-200 mb-4 text-xs font-bold">
                   <button
                     onClick={() => setRubricTab("ct")}
@@ -842,7 +869,7 @@ export default function PublicSpeakingApp() {
                       {ctLabels.map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                           <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
-                          <span className="font-black text-sm text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border">{evaluation.ctScores[idx]} / 5</span>
+                          <span className="font-black text-sm text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border">{evaluation.overall === "--" ? "–" : evaluation.ctScores[idx]} / 5</span>
                         </div>
                       ))}
                     </>
@@ -851,7 +878,7 @@ export default function PublicSpeakingApp() {
                       {psLabels.map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                           <span className="font-bold text-xs text-slate-800">{idx + 1}. {item}</span>
-                          <span className="font-black text-sm text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-lg border">{evaluation.psScores[idx]} / 5</span>
+                          <span className="font-black text-sm text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-lg border">{evaluation.overall === "--" ? "–" : evaluation.psScores[idx]} / 5</span>
                         </div>
                       ))}
                     </>

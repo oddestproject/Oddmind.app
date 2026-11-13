@@ -1,0 +1,23 @@
+# Rahasia GEMINI_API_KEY TIDAK ditulis di sini: pasang lewat `npx wrangler@4 secret put GEMINI_API_KEY`.
+name = "oddmind-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[vars]
+GEMINI_MODEL = "gemini-3.5-flash-lite"
+ALLOWED_ORIGINS = "https://oddestproject.github.io,http://localhost:3000"
+
+# Batas laju (butuh wrangler >= 4.36). Hitungan per lokasi Cloudflare dan tidak ketat.
+[[ratelimits]]
+name = "LIMIT_IP"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
+[[ratelimits]]
+name = "LIMIT_ALL"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 60
+  period = 60
