@@ -166,6 +166,23 @@ const emptyEval = {
   status: "idle"
 };
 
+// Bentuk minimal Web Speech API (tidak ada di tipe bawaan TypeScript).
+type SpeechEvt = { results: ArrayLike<ArrayLike<{ transcript: string }>>; error?: string };
+type Recognizer = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((e: SpeechEvt) => void) | null;
+  onerror: ((e: SpeechEvt) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+};
+type Evaluation = Omit<typeof emptyEval, "overall" | "status"> & { overall: number | string; status: string };
+
+const now = () => Date.now(); // dipanggil hanya dari event handler, bukan saat render
+const pickRandom = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
+
 export default function PublicSpeakingApp() {
   const [activeTab, setActiveTab] = useState<"latihan" | "rapor" | "riwayat" | "video" | "leaderboard">("latihan");
   const [currentTopic, setCurrentTopic] = useState(topicDatabase[0]);
@@ -229,13 +246,13 @@ export default function PublicSpeakingApp() {
   const [livePaceStatus, setLivePaceStatus] = useState<"Ideal" | "Terlalu Cepat" | "Terlalu Lambat">("Ideal");
   const [liveWpm, setLiveWpm] = useState(0);
 
-  const [evaluation, setEvaluation] = useState<any>(emptyEval);
+  const [evaluation, setEvaluation] = useState<Evaluation>(emptyEval);
   const [evalStatus, setEvalStatus] = useState<"idle" | "loading" | "error" | "empty">("idle");
   const [micError, setMicError] = useState(""); // pesan mikrofon/browser yang ramah; kosong = tidak ada masalah
   const [cardNotice, setCardNotice] = useState("");
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<Recognizer | null>(null);
   // Ref agar timer (closure lama) tetap membaca transkrip, waktu mulai, dan status rekam terbaru.
   const transcriptRef = useRef("");
   const startedAtRef = useRef(0);
@@ -265,7 +282,7 @@ export default function PublicSpeakingApp() {
       return;
     }
     setCardNotice("");
-    const random = filtered[Math.floor(Math.random() * filtered.length)];
+    const random = pickRandom(filtered);
     setCurrentTopic(random);
 
     if (isSparringMode) {
@@ -316,7 +333,7 @@ export default function PublicSpeakingApp() {
 
   const startRecording = () => {
     if (isSparringMode && !debateReady) return; // mode debat butuh klaim AI yang siap
-    const w = window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any };
+    const w = window as unknown as { SpeechRecognition?: new () => Recognizer; webkitSpeechRecognition?: new () => Recognizer };
     const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!Recognition) {
       // Tanpa pengenalan suara tidak ada yang bisa dinilai: jangan mulai timer, beri saran yang jujur.
@@ -331,7 +348,7 @@ export default function PublicSpeakingApp() {
     setIsRecording(true);
     isRecordingRef.current = true;
     transcriptRef.current = "";
-    startedAtRef.current = Date.now();
+    startedAtRef.current = now();
     setEvaluation(emptyEval);
     setEvalStatus("idle");
     setTimeLeft(isSparringMode ? 60 : 120);
@@ -344,7 +361,7 @@ export default function PublicSpeakingApp() {
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = "id-ID";
 
-    recognitionRef.current.onresult = (event: any) => {
+    recognitionRef.current.onresult = (event) => {
       let currentText = "";
       for (let i = 0; i < event.results.length; i++) {
         currentText += event.results[i][0].transcript;
@@ -355,7 +372,7 @@ export default function PublicSpeakingApp() {
       analyzeLiveMetrics(currentText);
     };
 
-    recognitionRef.current.onerror = (event: any) => {
+    recognitionRef.current.onerror = (event) => {
       const code = event?.error as string;
       if (code === "no-speech" || code === "aborted") return; // wajar saat jeda; onend yang memulai ulang
       fatalMicRef.current = true;
@@ -376,12 +393,11 @@ export default function PublicSpeakingApp() {
       if (!isRecordingRef.current || fatalMicRef.current || restartsRef.current >= 30) return;
       restartsRef.current += 1;
       baseTextRef.current = transcriptRef.current ? `${transcriptRef.current} ` : "";
-      try { recognitionRef.current.start(); } catch { /* sesi sudah berjalan */ }
+      try { recognitionRef.current?.start(); } catch { /* sesi sudah berjalan */ }
     };
 
     try { recognitionRef.current.start(); } catch { /* sesi sudah berjalan */ }
 
-    const totalSeconds = isSparringMode ? 60 : 120;
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -427,10 +443,10 @@ export default function PublicSpeakingApp() {
     setIsRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+      try { recognitionRef.current.stop(); } catch { /* sudah berhenti */ }
     }
 
-    evaluateTranscript(transcriptRef.current, (Date.now() - startedAtRef.current) / 1000);
+    evaluateTranscript(transcriptRef.current, (now() - startedAtRef.current) / 1000);
   };
 
   const evaluateTranscript = async (text: string, durationSeconds: number) => {
