@@ -10,7 +10,9 @@ export const KEYS = {
 export const SCHEMA_VERSION = 1;
 export const MAX_SESSIONS = 200;
 
-export type Flags = { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean };
+export type Flags = { gibberish: boolean; offTopic: boolean; tooShort: boolean; repetitive: boolean; panic: boolean; rebuttalMissed?: boolean };
+// Sesi debat: klaim AI yang dilawan dan hasil penilaian sanggahan. Opsional, jadi skema tetap v1 tanpa migrasi.
+export type SessionRebuttal = { claim: string; addressed: boolean; quality: number; evidence_quote: string; verified: boolean };
 export type Session = {
   id: string;
   at: string; // ISO
@@ -32,6 +34,7 @@ export type Session = {
   relevance: number | null;
   feedback: { good: string; improve: string; recommend: string };
   transcript?: string;
+  rebuttal?: SessionRebuttal;
   legacy?: boolean; // dibuat sebelum Fase 5 (skor era lama): tampil di riwayat, tidak masuk statistik/badge
 };
 export type Profile = { xp: number; streak: number; lastDate: string | null; target: number };
@@ -53,6 +56,11 @@ export function sanitizeSession(x: unknown): Session | null {
   if (!id || Number.isNaN(Date.parse(at)) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
   if (!isScores(o.ct) || !isScores(o.ps) || typeof o.overall !== "number" || o.overall < 0 || o.overall > 100) return null;
   const f = rec(o.feedback);
+  const rb = rec(o.rebuttal);
+  const rebuttal: SessionRebuttal | undefined =
+    typeof rb.claim === "string" && typeof rb.addressed === "boolean"
+      ? { claim: rb.claim, addressed: rb.addressed, quality: Math.min(5, Math.max(0, num(rb.quality))), evidence_quote: str(rb.evidence_quote), verified: rb.verified !== false }
+      : undefined;
   return {
     id, at, day, topicId: str(o.topicId), topic: str(o.topic), level: str(o.level),
     mode: o.mode === "debat" ? "debat" : "biasa", durationSec: num(o.durationSec), words: num(o.words), wpm: num(o.wpm),
@@ -65,6 +73,7 @@ export function sanitizeSession(x: unknown): Session | null {
     relevance: typeof o.relevance === "number" ? o.relevance : null,
     feedback: { good: str(f.good), improve: str(f.improve), recommend: str(f.recommend) },
     transcript: typeof o.transcript === "string" ? o.transcript : undefined,
+    rebuttal,
     legacy: o.legacy === true ? true : undefined,
   };
 }
