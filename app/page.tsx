@@ -47,6 +47,11 @@ import {
 import { evaluateSpeechV2 } from "@/lib/aiClient";
 import { analyze, countFillers, tokenize, CT_LABELS, PS_LABELS } from "@/lib/analysis/index";
 import type { Level } from "@/lib/analysis/index";
+import { calcXp, levelFor, nextStreak, shownStreak, dayKey } from "@/lib/progress";
+import Modal from "@/components/Modal";
+
+// Sesi riwayat yang dinilai. Entri lama tanpa flag dianggap valid bila fillers bukan null.
+const isValidSession = (h: { valid?: boolean; fillers?: number | null }) => h.valid ?? h.fillers != null;
 
 // ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
@@ -199,8 +204,9 @@ export default function PublicSpeakingApp() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const [history, setHistory] = useState<any[]>([]);
-  const [streak, setStreak] = useState(1);
+  const [streak, setStreak] = useState(0);
   const [lastPracticeDate, setLastPracticeDate] = useState<string | null>(null);
+  const [today, setToday] = useState(""); // tanggal lokal; diisi saat mount agar HTML statis tidak membawa tanggal build
 // --- State & Data untuk Akun & Leaderboard ---
   const [userAccount, setUserAccount] = useState({
     name: "Pengguna Baru",
@@ -228,7 +234,7 @@ export default function PublicSpeakingApp() {
     ]
   };
   // GAMIFIKASI: XP & LEVEL & BADGES & QUESTS
-  const [userXp, setUserXp] = useState(120);
+  const [userXp, setUserXp] = useState(0);
   const [targetScore, setTargetScore] = useState(80);
   const [isSparringMode, setIsSparringMode] = useState(false);
   const [sparringOpini, setSparringOpini] = useState("");
@@ -255,29 +261,18 @@ export default function PublicSpeakingApp() {
 
   // LOAD DATA & CEK STREAK
   useEffect(() => {
+    const now = dayKey();
+    setToday(now);
     const savedData = localStorage.getItem("oddmind_app_data");
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
         if (parsed.history) setHistory(parsed.history);
         if (parsed.lastPracticeDate) setLastPracticeDate(parsed.lastPracticeDate);
-        if (parsed.userXp) setUserXp(parsed.userXp);
+        if (typeof parsed.userXp === "number") setUserXp(parsed.userXp);
         if (parsed.targetScore) setTargetScore(parsed.targetScore);
-
-        const today = new Date().toISOString().split("T")[0];
-        const lastDate = parsed.lastPracticeDate;
-
-        if (lastDate) {
-          const diffDays = Math.floor(
-            (new Date(today).getTime() - new Date(lastDate).getTime()) / (1000 * 3600 * 24)
-          );
-
-          if (diffDays === 1 || diffDays === 0) {
-            setStreak(parsed.streak || 1);
-          } else {
-            setStreak(1);
-          }
-        }
+        // Streak yang sudah putus (kemarin pun terlewat) ditampilkan 0 sampai latihan valid berikutnya.
+        setStreak(shownStreak(parsed.streak ?? 0, parsed.lastPracticeDate || null, now));
       } catch (e) {
         console.error(e);
       }
@@ -449,26 +444,21 @@ export default function PublicSpeakingApp() {
       wpm: r.wpm, fillers: r.fillers, flags: r.flags, evidence: r.evidence, status: r.status
     });
 
-    // XP hanya untuk ucapan yang dinilai (bukan tidak bermakna/terlalu pendek). Redesain XP: Fase 4.
-    const gainedXp = r.xpEligible ? 50 + Math.round(overall / 2) : 0;
+    // XP dan streak hanya untuk sesi valid; aturan di lib/progress.ts.
+    const prevValid = history.find(isValidSession);
+    const gainedXp = calcXp({ valid: r.xpEligible, overall, words: r.words, fillerCount: r.fillerCount, prevOverall: prevValid ? prevValid.overall : null });
     const newXpTotal = userXp + gainedXp;
     setUserXp(newXpTotal);
 
-    // MANAJEMEN STREAK PER HARI (hanya sesi yang layak)
-    const today = new Date().toISOString().split("T")[0];
+    const day = dayKey();
     let newStreak = streak;
-
-    if (r.xpEligible && lastPracticeDate !== today) {
-      if (lastPracticeDate) {
-        const diffDays = Math.floor(
-          (new Date(today).getTime() - new Date(lastPracticeDate).getTime()) / (1000 * 3600 * 24)
-        );
-        newStreak = diffDays === 1 ? streak + 1 : 1;
-      } else {
-        newStreak = 1;
-      }
+    let newLastDate = lastPracticeDate;
+    if (r.xpEligible) {
+      const s = nextStreak({ streak, lastDate: lastPracticeDate }, day);
+      newStreak = s.streak;
+      newLastDate = s.lastDate;
       setStreak(newStreak);
-      setLastPracticeDate(today);
+      setLastPracticeDate(newLastDate);
     }
 
     const newHistory = [
@@ -482,13 +472,15 @@ export default function PublicSpeakingApp() {
         psScores: ps,
         transcript: rawText,
         wpm: r.wpm,
-        fillers: r.xpEligible ? r.fillerCount : null // null agar sesi yang tidak dinilai tidak membuka badge "No Filler"
+        fillers: r.xpEligible ? r.fillerCount : null, // null agar sesi yang tidak dinilai tidak membuka badge "No Filler"
+        valid: r.xpEligible,
+        day
       },
       ...history,
     ];
 
     setHistory(newHistory);
-    saveToStorage(newHistory, newStreak, r.xpEligible ? today : (lastPracticeDate ?? ""), newXpTotal);
+    saveToStorage(newHistory, newStreak, newLastDate ?? "", newXpTotal);
   };
 
   const wordCount = transcript.trim().split(/\s+/).filter((w) => w.length > 0).length;
@@ -505,13 +497,7 @@ export default function PublicSpeakingApp() {
     : 0;
 
   // GAMIFIKASI CALCULATIONS (LEVEL & LEVEL NAME)
-  const currentLevelNum = Math.floor(userXp / 200) + 1;
-  const getLevelName = (lvl: number) => {
-    if (lvl < 3) return "Novice Debater";
-    if (lvl < 6) return "Logical Thinker";
-    if (lvl < 10) return "Master Persuader";
-    return "Public Speaking Titan";
-  };
+  const level = levelFor(userXp);
 
   // TARGET TRACKER PROGRESS (%)
   const targetProgressPercent = Math.min(100, Math.round((avgOverall / targetScore) * 100));
@@ -570,7 +556,7 @@ export default function PublicSpeakingApp() {
 
           <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-xl text-xs font-extrabold">
             <Zap className="w-4 h-4 text-purple-600 fill-purple-600" />
-            <span>Level {currentLevelNum}: {getLevelName(currentLevelNum)}</span>
+            <span>Level {level.n}: {level.name}</span>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-1 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-extrabold">
@@ -1055,10 +1041,9 @@ export default function PublicSpeakingApp() {
                 <div className="space-y-3 text-xs font-semibold">
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${history.length >= 1 ? "text-emerald-500" : "text-slate-300"}`} />
-                      <span>Selesaikan 1 Latihan Bicara Hari Ini</span>
+                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => isValidSession(h) && h.day === today) ? "text-emerald-500" : "text-slate-300"}`} />
+                      <span>Selesaikan 1 Latihan Bicara yang Dinilai Hari Ini</span>
                     </div>
-                    <span className="text-purple-700 font-bold">+50 XP</span>
                   </div>
 
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
@@ -1066,15 +1051,13 @@ export default function PublicSpeakingApp() {
                       <CheckCircle2 className={`w-4 h-4 ${streak >= 3 ? "text-emerald-500" : "text-slate-300"}`} />
                       <span>Pertahankan Streak Latihan 3 Hari</span>
                     </div>
-                    <span className="text-purple-700 font-bold">+100 XP</span>
                   </div>
 
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
-                      <span>Capai Skor Bicara &gt; 80 Poin</span>
+                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => isValidSession(h) && h.day === today && h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
+                      <span>Capai Skor Bicara 80 Poin atau Lebih Hari Ini</span>
                     </div>
-                    <span className="text-purple-700 font-bold">+150 XP</span>
                   </div>
                 </div>
               </div>
@@ -1217,37 +1200,29 @@ export default function PublicSpeakingApp() {
       </div>
 
       {/* HINT MODAL */}
-      {showHintModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
-            <button onClick={() => setShowHintModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="font-bold text-lg text-slate-800">💡 Clue & Structural Hint</h3>
-            <p className="text-sm text-slate-600">Gunakan struktur <strong>PREP</strong> untuk merespons:</p>
-            <ul className="text-xs space-y-2 text-slate-700 list-disc pl-4">
-              <li><strong>P (Point):</strong> Sampaikan poin/pendapat utamamu.</li>
-              <li><strong>R (Reason):</strong> Berikan alasan pendukung yang logis.</li>
-              <li><strong>E (Example):</strong> Berikan contoh nyata atau pengalaman.</li>
-              <li><strong>P (Point):</strong> Tegaskan kembali kesimpulanmu.</li>
-            </ul>
-          </div>
-        </div>
-      )}
+      <Modal open={showHintModal} onClose={() => setShowHintModal(false)} label="Clue dan petunjuk struktur" panelClass="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
+        <button onClick={() => setShowHintModal(false)} aria-label="Tutup" className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="font-bold text-lg text-slate-800">💡 Clue & Structural Hint</h3>
+        <p className="text-sm text-slate-600">Gunakan struktur <strong>PREP</strong> untuk merespons:</p>
+        <ul className="text-xs space-y-2 text-slate-700 list-disc pl-4">
+          <li><strong>P (Point):</strong> Sampaikan poin/pendapat utamamu.</li>
+          <li><strong>R (Reason):</strong> Berikan alasan pendukung yang logis.</li>
+          <li><strong>E (Example):</strong> Berikan contoh nyata atau pengalaman.</li>
+          <li><strong>P (Point):</strong> Tegaskan kembali kesimpulanmu.</li>
+        </ul>
+      </Modal>
 
       {/* VIDEO MODAL */}
-      {videoUrl && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-4 max-w-3xl w-full relative">
-            <button onClick={() => setVideoUrl(null)} className="absolute -top-10 right-0 text-white hover:text-slate-200">
-              <X className="w-6 h-6" />
-            </button>
-            <div className="aspect-video w-full">
-              <iframe src={videoUrl} className="w-full h-full rounded-xl" allowFullScreen title="Video Hub"></iframe>
-            </div>
-          </div>
+      <Modal open={!!videoUrl} onClose={() => setVideoUrl(null)} label="Pemutar video" overlayClass="bg-black/70" panelClass="bg-white rounded-2xl p-4 max-w-3xl w-full relative">
+        <button onClick={() => setVideoUrl(null)} aria-label="Tutup video" className="absolute -top-10 right-0 text-white hover:text-slate-200">
+          <X className="w-6 h-6" />
+        </button>
+        <div className="aspect-video w-full">
+          {videoUrl && <iframe src={videoUrl} className="w-full h-full rounded-xl" allowFullScreen title="Video Hub"></iframe>}
         </div>
-      )}
+      </Modal>
 {/* TAB: LEADERBOARD & AKUN */}
 {activeTab === "leaderboard" && (
   <div className="bg-white/90 rounded-2xl p-6 shadow-sm space-y-6">

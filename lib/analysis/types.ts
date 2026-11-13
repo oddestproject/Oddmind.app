@@ -60,6 +60,7 @@ export type AnalysisResult = {
   flags: Flags;
   gateNotes: string[];
   xpEligible: boolean;
+  words: number;
   wpm: number;
   fillerCount: number;
   fillers: Found[];
