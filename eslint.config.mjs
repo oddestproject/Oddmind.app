@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Proxy Cloudflare punya runtime sendiri, bukan bagian dari app Next.
     "workers/**",
+    // Catatan dan skrip uji lokal (tidak ter-track).
+    "catatan-lokal/**",
   ]),
 ]);
 
