@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   BookOpen,
   Mic,
@@ -47,11 +47,12 @@ import {
 import { evaluateSpeechV2 } from "@/lib/aiClient";
 import { analyze, countFillers, tokenize, CT_LABELS, PS_LABELS } from "@/lib/analysis/index";
 import type { Level } from "@/lib/analysis/index";
-import { calcXp, levelFor, nextStreak, shownStreak, dayKey } from "@/lib/progress";
+import { calcXp, levelFor, dayKey } from "@/lib/progress";
+import { useOddmind, getState, commitSession, setTarget, clearAll, newId } from "@/lib/store";
+import { scoredSessions, stats, trend, compare } from "@/lib/sessions";
+import type { Session } from "@/lib/sessions";
+import { evaluateBadges } from "@/lib/badges";
 import Modal from "@/components/Modal";
-
-// Sesi riwayat yang dinilai. Entri lama tanpa flag dianggap valid bila fillers bukan null.
-const isValidSession = (h: { valid?: boolean; fillers?: number | null }) => h.valid ?? h.fillers != null;
 
 // ==================== TOPIC DATABASE (100 SOAL LENGKAP) ====================
 const topicDatabase = [
@@ -203,10 +204,12 @@ export default function PublicSpeakingApp() {
   const [showHintModal, setShowHintModal] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  const [history, setHistory] = useState<any[]>([]);
-  const [streak, setStreak] = useState(0);
-  const [lastPracticeDate, setLastPracticeDate] = useState<string | null>(null);
-  const [today, setToday] = useState(""); // tanggal lokal; diisi saat mount agar HTML statis tidak membawa tanggal build
+  // Semua data tersimpan (sesi, XP, streak, target) lewat satu store; semua tab membaca sumber yang sama.
+  const { sessions: history, profile, today, notice } = useOddmind();
+  const userXp = profile.xp;
+  const streak = profile.streak;
+  const targetScore = profile.target;
+  const [showClearModal, setShowClearModal] = useState(false);
 // --- State & Data untuk Akun & Leaderboard ---
   const [userAccount, setUserAccount] = useState({
     name: "Pengguna Baru",
@@ -234,14 +237,12 @@ export default function PublicSpeakingApp() {
     ]
   };
   // GAMIFIKASI: XP & LEVEL & BADGES & QUESTS
-  const [userXp, setUserXp] = useState(0);
-  const [targetScore, setTargetScore] = useState(80);
   const [isSparringMode, setIsSparringMode] = useState(false);
   const [sparringOpini, setSparringOpini] = useState("");
 
-  // COMPARISON SIDE BY SIDE STATE
-  const [compareId1, setCompareId1] = useState<number | null>(null);
-  const [compareId2, setCompareId2] = useState<number | null>(null);
+  // COMPARISON SIDE BY SIDE: pilihan pengguna; bila kosong dipakai sesi valid tertua dan terbaru
+  const [compareId1, setCompareId1] = useState("");
+  const [compareId2, setCompareId2] = useState("");
 
   // LIVE ASSISTANT REALTIME METRICS
   const [liveFillers, setLiveFillers] = useState(0);
@@ -258,39 +259,6 @@ export default function PublicSpeakingApp() {
   const startedAtRef = useRef(0);
   const isRecordingRef = useRef(false);
   const lastRunRef = useRef<{ text: string; durationSeconds: number } | null>(null);
-
-  // LOAD DATA & CEK STREAK
-  useEffect(() => {
-    const now = dayKey();
-    setToday(now);
-    const savedData = localStorage.getItem("oddmind_app_data");
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        if (parsed.history) setHistory(parsed.history);
-        if (parsed.lastPracticeDate) setLastPracticeDate(parsed.lastPracticeDate);
-        if (typeof parsed.userXp === "number") setUserXp(parsed.userXp);
-        if (parsed.targetScore) setTargetScore(parsed.targetScore);
-        // Streak yang sudah putus (kemarin pun terlewat) ditampilkan 0 sampai latihan valid berikutnya.
-        setStreak(shownStreak(parsed.streak ?? 0, parsed.lastPracticeDate || null, now));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
-
-  const saveToStorage = (newHistory: any[], newStreak: number, dateStr: string, xp: number) => {
-    localStorage.setItem(
-      "oddmind_app_data",
-      JSON.stringify({
-        history: newHistory,
-        streak: newStreak,
-        lastPracticeDate: dateStr,
-        userXp: xp,
-        targetScore
-      })
-    );
-  };
 
   const getNewCard = () => {
     const filtered = topicDatabase.filter(t => {
@@ -444,95 +412,85 @@ export default function PublicSpeakingApp() {
       wpm: r.wpm, fillers: r.fillers, flags: r.flags, evidence: r.evidence, status: r.status
     });
 
-    // XP dan streak hanya untuk sesi valid; aturan di lib/progress.ts.
-    const prevValid = history.find(isValidSession);
+    // XP dan streak hanya untuk sesi valid (aturan di lib/progress.ts). Dibaca dari store terbaru, bukan closure timer yang basi.
+    const prevValid = scoredSessions(getState().sessions)[0];
     const gainedXp = calcXp({ valid: r.xpEligible, overall, words: r.words, fillerCount: r.fillerCount, prevOverall: prevValid ? prevValid.overall : null });
-    const newXpTotal = userXp + gainedXp;
-    setUserXp(newXpTotal);
 
-    const day = dayKey();
-    let newStreak = streak;
-    let newLastDate = lastPracticeDate;
-    if (r.xpEligible) {
-      const s = nextStreak({ streak, lastDate: lastPracticeDate }, day);
-      newStreak = s.streak;
-      newLastDate = s.lastDate;
-      setStreak(newStreak);
-      setLastPracticeDate(newLastDate);
-    }
-
-    const newHistory = [
+    commitSession(
       {
-        id: Date.now(),
-        date: new Date().toLocaleDateString("id-ID"),
+        id: newId(),
+        at: new Date().toISOString(),
+        day: dayKey(),
+        topicId: currentTopic.id,
         topic: currentTopic.title,
         level: currentTopic.level,
-        overall,
-        ctScores: ct,
-        psScores: ps,
-        transcript: rawText,
+        mode: isSparringMode ? "debat" : "biasa",
+        durationSec: Math.round(durationSeconds),
+        words: r.words,
         wpm: r.wpm,
-        fillers: r.xpEligible ? r.fillerCount : null, // null agar sesi yang tidak dinilai tidak membuka badge "No Filler"
+        fillerCount: r.fillerCount,
+        fillers: r.fillers.slice(0, 12),
+        ct,
+        ps,
+        overall,
         valid: r.xpEligible,
-        day
+        flags: r.flags,
+        relevance: r.relevance,
+        feedback: { good: r.goodText, improve: r.improveText, recommend: r.recommendText },
+        transcript: rawText,
       },
-      ...history,
-    ];
-
-    setHistory(newHistory);
-    saveToStorage(newHistory, newStreak, newLastDate ?? "", newXpTotal);
+      gainedXp,
+    );
   };
 
   const wordCount = transcript.trim().split(/\s+/).filter((w) => w.length > 0).length;
 
-  // METRIK DAN DATA STATISTIK UNTUK RAPOR
-  const totalRecordings = history.length;
-  
-  const avgOverall = totalRecordings > 0
-    ? Math.round(history.reduce((acc, curr) => acc + curr.overall, 0) / totalRecordings)
-    : evaluation.overall !== "--" ? evaluation.overall : 0;
-
-  const avgCTScore = totalRecordings > 0
-    ? Math.round((history.reduce((acc, curr) => acc + (curr.ctScores ? curr.ctScores.reduce((a:number,b:number)=>a+b,0)/5 : 0), 0) / totalRecordings) * 20)
-    : 0;
+  // STATISTIK RAPOR: hanya sesi valid (bukan data lama) dari store; rumus sama dengan skor overall (1 = 0, 5 = 100)
+  const st = stats(history);
+  const scored = scoredSessions(history); // terbaru dulu
+  const totalRecordings = scored.length;
+  const avgOverall = st ? st.avgOverall : 0;
+  const avgCTScore = st ? st.avgCt : 0;
 
   // GAMIFIKASI CALCULATIONS (LEVEL & LEVEL NAME)
   const level = levelFor(userXp);
 
   // TARGET TRACKER PROGRESS (%)
-  const targetProgressPercent = Math.min(100, Math.round((avgOverall / targetScore) * 100));
+  const targetProgressPercent = st ? Math.min(100, Math.round((avgOverall / targetScore) * 100)) : 0;
 
-  // TREN HARIAN UNTUK LINE CHART
-  const trendData = history.slice(0, 7).reverse().map((item, i) => ({
-    name: `Sesi ${i + 1}`,
-    Skor: item.overall,
-    WPM: item.wpm || 100,
-  }));
+  // TREN: 10 sesi valid terakhir
+  const trendData = trend(history, 10);
 
-  // RADAR CHART (5 AKSIS PENTAGON)
+  // RADAR CHART (5 AKSIS PENTAGON): rata-rata per dimensi; kosong bila belum ada sesi valid
   const ctLabels = CT_LABELS;
   const psLabels = PS_LABELS;
+  const radarData = st ? ctLabels.map((label, idx) => ({ subject: label, CT: st.ctDims[idx], PS: st.psDims[idx], fullMark: 100 })) : [];
 
-  const radarData = ctLabels.map((label, idx) => {
-    const ctVal = totalRecordings > 0
-      ? Math.round(history.reduce((acc, curr) => acc + (curr.ctScores ? curr.ctScores[idx] : 1), 0) / totalRecordings * 20)
-      : evaluation.ctScores[idx] * 20;
+  const badges = evaluateBadges(history);
 
-    const psVal = totalRecordings > 0
-      ? Math.round(history.reduce((acc, curr) => acc + (curr.psScores ? curr.psScores[idx] : 1), 0) / totalRecordings * 20)
-      : evaluation.psScores[idx] * 20;
+  // KOMPARASI: default sesi valid tertua (Before) dan terbaru (After); pilihan pengguna menimpa
+  const byId = (id: string) => scored.find((s) => s.id === id);
+  const cmpA: Session | undefined = byId(compareId1) ?? (scored.length >= 2 ? scored[scored.length - 1] : undefined);
+  const cmpB: Session | undefined = byId(compareId2) ?? (scored.length >= 2 ? scored[0] : undefined);
+  const diff = cmpA && cmpB ? compare(cmpA, cmpB) : null;
+  const sessionLabel = (s: Session) => `${new Date(s.at).toLocaleDateString("id-ID")} - ${s.topic} (Skor: ${s.overall})`;
+  const delta = (n: number, unit = "") => (n > 0 ? `▲ +${n}${unit}` : n < 0 ? `▼ ${n}${unit}` : `= 0${unit}`);
+  const deltaClass = (n: number, goodWhenUp = true) => (n === 0 ? "text-slate-500" : (n > 0) === goodWhenUp ? "text-emerald-600" : "text-rose-600");
 
-    return {
-      subject: label,
-      CT: ctVal,
-      PS: psVal,
-      fullMark: 100,
-    };
-  });
-
-  // RECORDED AUDIOS FOR BEFORE VS AFTER COMPARISON
-  const selectedCompare1 = history.find(h => h.id === compareId1);
-  const selectedCompare2 = history.find(h => h.id === compareId2);
+  const noticeText: Record<string, string> = {
+    unavailable: "Penyimpanan browser tidak tersedia (mode privat atau diblokir). Aplikasi tetap jalan, tetapi riwayat hilang saat halaman ditutup.",
+    pruned: "Penyimpanan hampir penuh: transkrip atau sesi lama dipangkas agar sesi baru tetap tersimpan.",
+    corrupt: "Data riwayat sebelumnya rusak. Salinannya disimpan terpisah di browser dan riwayat dimulai dari awal.",
+    newer: "Data riwayat dibuat oleh versi aplikasi yang lebih baru, jadi tidak ditimpa. Sesi baru tidak tersimpan di perangkat ini.",
+  };
+  const dataNotice = (
+    <div className="space-y-2">
+      {notice !== "none" && (
+        <div role="alert" className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">{noticeText[notice]}</div>
+      )}
+      <p className="text-xs text-slate-500">Riwayat tersimpan hanya di browser dan perangkat ini. Menghapus data browser atau memakai mode privat akan menghapusnya.</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-purple-100 to-indigo-100 text-slate-800 p-4 md:p-8 font-sans">
@@ -918,6 +876,7 @@ export default function PublicSpeakingApp() {
         {/* TAB 2: RAPOR PERKEMBANGAN (DASHBOARD & GRAPH & TARGET TRACKER) */}
         {activeTab === "rapor" && (
           <div className="space-y-6">
+            {dataNotice}
             
             {/* TARGET TRACKER (GOAL SETTING) & STATS */}
             <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white">
@@ -933,7 +892,10 @@ export default function PublicSpeakingApp() {
                   <input
                     type="number"
                     value={targetScore}
-                    onChange={(e) => setTargetScore(Number(e.target.value))}
+                    onChange={(e) => setTarget(Number(e.target.value))}
+                    min={1}
+                    max={100}
+                    aria-label="Target skor"
                     className="w-20 bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-center text-sm font-bold text-purple-700 outline-none"
                   />
                 </div>
@@ -947,7 +909,7 @@ export default function PublicSpeakingApp() {
                 ></div>
               </div>
               <div className="flex justify-between items-center mt-2 text-xs font-bold text-slate-600">
-                <span>Pencapaian: {avgOverall} Poin</span>
+                <span>{st ? `Pencapaian: ${avgOverall} Poin (rata-rata ${totalRecordings} sesi dinilai)` : "Belum ada sesi yang dinilai"}</span>
                 <span>{targetProgressPercent}% Target Tercapai ({targetScore} Poin)</span>
               </div>
             </div>
@@ -956,14 +918,14 @@ export default function PublicSpeakingApp() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
                 <span className="text-xs font-bold text-slate-400 block mb-1">OVERALL SPEAKING</span>
-                <span className="text-3xl font-black text-purple-600">{avgOverall} / 100</span>
+                <span className="text-3xl font-black text-purple-600">{st ? `${avgOverall} / 100` : "–"}</span>
               </div>
               <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
                 <span className="text-xs font-bold text-slate-400 block mb-1">CRITICAL THINKING</span>
-                <span className="text-3xl font-black text-indigo-600">{avgCTScore} / 100</span>
+                <span className="text-3xl font-black text-indigo-600">{st ? `${avgCTScore} / 100` : "–"}</span>
               </div>
               <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
-                <span className="text-xs font-bold text-slate-400 block mb-1">TOTAL REKAMAN</span>
+                <span className="text-xs font-bold text-slate-400 block mb-1">SESI DINILAI</span>
                 <span className="text-3xl font-black text-slate-700">{totalRecordings}</span>
               </div>
               <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl text-center shadow-sm border border-white">
@@ -997,8 +959,8 @@ export default function PublicSpeakingApp() {
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
-                      Belum ada data tren. Lakukan beberapa rekaman!
+                    <div className="h-full flex items-center justify-center text-xs text-slate-500 italic text-center px-6">
+                      Belum ada sesi yang dinilai. Rekam jawaban minimal 10 kata lalu tunggu penilaian AI; grafik muncul setelah sesi pertama.
                     </div>
                   )}
                 </div>
@@ -1012,6 +974,9 @@ export default function PublicSpeakingApp() {
                 </div>
 
                 <div className="w-full h-[300px] flex items-center justify-center">
+                  {radarData.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic text-center px-6">Radar menampilkan rata-rata 10 dimensi dari sesi yang dinilai. Belum ada data.</p>
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                       <PolarGrid stroke="#e2e8f0" />
@@ -1025,6 +990,7 @@ export default function PublicSpeakingApp() {
                       <Legend />
                     </RadarChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
               </div>
 
@@ -1041,7 +1007,7 @@ export default function PublicSpeakingApp() {
                 <div className="space-y-3 text-xs font-semibold">
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => isValidSession(h) && h.day === today) ? "text-emerald-500" : "text-slate-300"}`} />
+                      <CheckCircle2 className={`w-4 h-4 ${scored.some(h => h.day === today) ? "text-emerald-500" : "text-slate-300"}`} />
                       <span>Selesaikan 1 Latihan Bicara yang Dinilai Hari Ini</span>
                     </div>
                   </div>
@@ -1055,7 +1021,7 @@ export default function PublicSpeakingApp() {
 
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className={`w-4 h-4 ${history.some(h => isValidSession(h) && h.day === today && h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
+                      <CheckCircle2 className={`w-4 h-4 ${scored.some(h => h.day === today && h.overall >= 80) ? "text-emerald-500" : "text-slate-300"}`} />
                       <span>Capai Skor Bicara 80 Poin atau Lebih Hari Ini</span>
                     </div>
                   </div>
@@ -1067,21 +1033,19 @@ export default function PublicSpeakingApp() {
                 <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                   <Award className="w-5 h-5 text-indigo-600" /> Lencana Pencapaian (Badges)
                 </h3>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className={`p-3 rounded-xl border ${streak >= 3 ? "bg-amber-50 border-amber-300 text-amber-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
-                    <Flame className="w-6 h-6 mx-auto mb-1 text-amber-500" />
-                    <span className="text-xs font-bold block">3-Day Streak</span>
-                  </div>
-
-                  <div className={`p-3 rounded-xl border ${history.some(h => h.fillers === 0) ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
-                    <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-emerald-500" />
-                    <span className="text-xs font-bold block">No Filler Champion</span>
-                  </div>
-
-                  <div className={`p-3 rounded-xl border ${history.some(h => h.overall >= 85) ? "bg-purple-50 border-purple-300 text-purple-900" : "bg-slate-100 text-slate-400 opacity-50"}`}>
-                    <Brain className="w-6 h-6 mx-auto mb-1 text-purple-600" />
-                    <span className="text-xs font-bold block">Logical Master</span>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  {badges.map((b) => {
+                    const Icon = b.id === "streak3" ? Flame : b.id === "noFiller" ? CheckCircle2 : Brain;
+                    const tone = b.id === "streak3" ? "bg-amber-50 border-amber-300 text-amber-900" : b.id === "noFiller" ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-purple-50 border-purple-300 text-purple-900";
+                    return (
+                      <div key={b.id} className={`p-3 rounded-xl border ${b.earned ? tone : "bg-slate-100 border-slate-200 text-slate-500"}`}>
+                        <Icon className={`w-6 h-6 mx-auto mb-1 ${b.earned ? "" : "opacity-40"}`} aria-hidden="true" />
+                        <span className="text-xs font-bold block">{b.name}</span>
+                        <span className="text-[10px] font-bold block mt-0.5">{b.earned ? "Terbuka" : `Terkunci · ${b.progress}`}</span>
+                        <span className="text-[10px] block mt-1 leading-snug opacity-80">{b.requirement}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1093,80 +1057,115 @@ export default function PublicSpeakingApp() {
         {/* TAB 3: RIWAYAT & SIDE-BY-SIDE COMPARISON */}
         {activeTab === "riwayat" && (
           <div className="space-y-6">
-            
+            {dataNotice}
+
             {/* SIDE BY SIDE COMPARISON SECTION */}
             <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white">
               <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                 <Compass className="w-5 h-5 text-purple-600" /> Feature Before vs After (Side-by-Side Comparison)
               </h2>
-              <p className="text-xs text-slate-500 mb-4">Pilih 2 rekaman untuk membandingkan perkembangan gaya bicara dan skor kamu!</p>
+              <p className="text-xs text-slate-500 mb-4">Pilih 2 sesi yang dinilai untuk membandingkan skor dan perkembangan gaya bicaramu.</p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Rekaman Awal (Before)</label>
-                  <select
-                    onChange={(e) => setCompareId1(Number(e.target.value))}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
-                  >
-                    <option value="">-- Pilih Sesi Awal --</option>
-                    {history.map(h => (
-                      <option key={h.id} value={h.id}>{h.date} - {h.topic} (Skor: {h.overall})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Rekaman Terbaru (After)</label>
-                  <select
-                    onChange={(e) => setCompareId2(Number(e.target.value))}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
-                  >
-                    <option value="">-- Pilih Sesi Terbaru --</option>
-                    {history.map(h => (
-                      <option key={h.id} value={h.id}>{h.date} - {h.topic} (Skor: {h.overall})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* CARD COMPARISON RESULT */}
-              {selectedCompare1 && selectedCompare2 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50/50 border border-purple-200 rounded-2xl">
-                  <div className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm space-y-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase">SESI BEFORE ({selectedCompare1.date})</span>
-                    <h4 className="font-bold text-slate-800 text-sm">{selectedCompare1.topic}</h4>
-                    <p className="text-2xl font-black text-purple-700">{selectedCompare1.overall} / 100</p>
-                    <p className="text-xs text-slate-600 italic">"{selectedCompare1.transcript}"</p>
+              {scored.length < 2 ? (
+                <p role="status" className="text-sm text-slate-500 italic py-4">
+                  Komparasi butuh minimal 2 sesi yang dinilai. Saat ini ada {scored.length}. Sesi yang terlalu pendek, tidak bermakna, atau data versi lama tidak dihitung.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label htmlFor="cmp-a" className="block text-xs font-bold text-slate-600 mb-1">Sesi Awal (Before)</label>
+                      <select id="cmp-a" value={cmpA?.id ?? ""} onChange={(e) => setCompareId1(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                        {[...scored].reverse().map((s) => (
+                          <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="cmp-b" className="block text-xs font-bold text-slate-600 mb-1">Sesi Terbaru (After)</label>
+                      <select id="cmp-b" value={cmpB?.id ?? ""} onChange={(e) => setCompareId2(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                        {[...scored].reverse().map((s) => (
+                          <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm space-y-2">
-                    <span className="text-xs font-bold text-emerald-600 uppercase">SESI AFTER ({selectedCompare2.date})</span>
-                    <h4 className="font-bold text-slate-800 text-sm">{selectedCompare2.topic}</h4>
-                    <p className="text-2xl font-black text-emerald-600">{selectedCompare2.overall} / 100</p>
-                    <p className="text-xs text-slate-600 italic">"{selectedCompare2.transcript}"</p>
-                  </div>
-                </div>
+                  {cmpA && cmpB && diff && cmpA.id === cmpB.id && (
+                    <p role="status" className="text-xs text-amber-700 font-semibold">Pilih dua sesi yang berbeda.</p>
+                  )}
+                  {cmpA && cmpB && diff && cmpA.id !== cmpB.id && (
+                    <div className="space-y-4 p-4 bg-purple-50/50 border border-purple-200 rounded-2xl">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[{ s: cmpA, tag: "BEFORE", tone: "text-purple-700", box: "border-purple-100" }, { s: cmpB, tag: "AFTER", tone: "text-emerald-600", box: "border-emerald-200" }].map(({ s, tag, tone, box }) => (
+                          <div key={tag} className={`bg-white p-4 rounded-xl border ${box} shadow-sm space-y-2`}>
+                            <span className="text-xs font-bold text-slate-400 uppercase">SESI {tag} ({new Date(s.at).toLocaleDateString("id-ID")})</span>
+                            <h4 className="font-bold text-slate-800 text-sm">{s.topic}</h4>
+                            <p className={`text-2xl font-black ${tone}`}>{s.overall} / 100</p>
+                            <p className="text-xs text-slate-500">{s.wpm} WPM · {s.fillerCount} filler</p>
+                            {s.transcript && <p className="text-xs text-slate-600 italic line-clamp-4">&ldquo;{s.transcript}&rdquo;</p>}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-white rounded-xl border border-slate-200 p-4">
+                        <h4 className="text-xs font-bold text-slate-700 mb-2">Selisih (After dikurangi Before)</h4>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs font-semibold">
+                          <li className="flex justify-between sm:col-span-2 text-sm"><span>Overall</span><span className={deltaClass(diff.overall)}>{delta(diff.overall, " poin")}</span></li>
+                          {ctLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-slate-600">{l}</span><span className={deltaClass(diff.ct[i])}>{delta(diff.ct[i])}</span></li>))}
+                          {psLabels.map((l, i) => (<li key={l} className="flex justify-between"><span className="text-slate-600">{l}</span><span className={deltaClass(diff.ps[i])}>{delta(diff.ps[i])}</span></li>))}
+                          <li className="flex justify-between"><span className="text-slate-600">WPM</span><span className="text-slate-700">{delta(diff.wpm)}</span></li>
+                          <li className="flex justify-between"><span className="text-slate-600">Filler</span><span className={deltaClass(diff.fillerCount, false)}>{delta(diff.fillerCount)}</span></li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* LIST RIWAYAT REKAMAN */}
             <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-4">
-              <h2 className="text-lg font-bold text-slate-800">📜 Riwayat Latihan Speaking</h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-800">📜 Riwayat Latihan Speaking</h2>
+                {history.length > 0 && (
+                  <button onClick={() => setShowClearModal(true)} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">
+                    Hapus semua data
+                  </button>
+                )}
+              </div>
               {history.length === 0 ? (
                 <p className="text-sm text-slate-500 italic py-6 text-center">Belum ada riwayat latihan. Mulai rekaman pertamamu!</p>
               ) : (
-                <div className="space-y-3">
-                  {history.map((h) => (
-                    <div key={h.id} className="p-4 bg-white rounded-xl border border-slate-200 flex justify-between items-center">
-                      <div>
-                        <span className="text-xs text-slate-400">{h.date} - {h.level}</span>
-                        <h4 className="font-bold text-slate-800 text-sm">{h.topic}</h4>
-                        <p className="text-xs text-slate-500 italic mt-1">"{h.transcript}"</p>
-                      </div>
-                      <span className="text-xl font-black text-purple-700">{h.overall} / 100</span>
-                    </div>
-                  ))}
-                </div>
+                <ul className="space-y-3">
+                  {history.map((h) => {
+                    const counted = h.valid && !h.legacy;
+                    return (
+                      <li key={h.id} className="bg-white rounded-xl border border-slate-200">
+                        <details className="p-4">
+                          <summary className="flex justify-between items-center gap-3 cursor-pointer">
+                            <div>
+                              <span className="text-xs text-slate-400">
+                                {new Date(h.at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })} - {h.level}{h.mode === "debat" ? " - Mode Debat" : ""}
+                              </span>
+                              <h4 className="font-bold text-slate-800 text-sm">{h.topic || "(tanpa judul)"}</h4>
+                              <div className="flex flex-wrap gap-1.5 mt-1 text-[10px] font-bold">
+                                {h.legacy && <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Versi lama, tidak dihitung</span>}
+                                {!h.legacy && !h.valid && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Tidak dinilai{h.flags.gibberish ? " · tidak bermakna" : h.flags.tooShort ? " · terlalu pendek" : ""}</span>}
+                              </div>
+                            </div>
+                            <span className={`text-xl font-black ${counted ? "text-purple-700" : "text-slate-400"}`}>{counted || h.legacy ? `${h.overall} / 100` : "–"}</span>
+                          </summary>
+                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
+                            <p>{h.words} kata · {h.wpm} WPM · {h.fillerCount} filler{h.fillers.length ? ` (${h.fillers.slice(0, 5).map((f) => `${f.term} ×${f.count}`).join(", ")})` : ""}</p>
+                            {h.feedback.good && <p><span className="font-bold text-emerald-700">Sudah bagus:</span> {h.feedback.good}</p>}
+                            {h.feedback.improve && <p><span className="font-bold text-rose-700">Perlu ditingkatkan:</span> {h.feedback.improve}</p>}
+                            {h.transcript && <p className="italic">&ldquo;{h.transcript}&rdquo;</p>}
+                          </div>
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
 
@@ -1212,6 +1211,20 @@ export default function PublicSpeakingApp() {
           <li><strong>E (Example):</strong> Berikan contoh nyata atau pengalaman.</li>
           <li><strong>P (Point):</strong> Tegaskan kembali kesimpulanmu.</li>
         </ul>
+      </Modal>
+
+      <Modal open={showClearModal} onClose={() => setShowClearModal(false)} label="Hapus semua data" panelClass="bg-white rounded-2xl p-6 max-w-md w-full relative space-y-4">
+        <h3 className="font-bold text-lg text-slate-800">Hapus semua data?</h3>
+        <p className="text-sm text-slate-600">Semua riwayat latihan, XP, streak, dan target di browser ini akan dihapus dan tidak bisa dikembalikan.</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setShowClearModal(false)} className="px-4 py-2 text-sm font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Batal</button>
+          <button
+            onClick={() => { clearAll(); setCompareId1(""); setCompareId2(""); setShowClearModal(false); }}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700"
+          >
+            Hapus semua
+          </button>
+        </div>
       </Modal>
 
       {/* VIDEO MODAL */}
