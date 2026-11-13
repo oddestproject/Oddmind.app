@@ -50,7 +50,7 @@ export function capsFor(flags: Flags, m: Metrics, level: Level) {
 }
 
 const ones = () => [1, 1, 1, 1, 1];
-const base = (m: Metrics) => ({ wpm: m.wpm, fillerCount: m.fillerCount, fillers: m.fillers });
+const base = (m: Metrics) => ({ words: m.words, wpm: m.wpm, fillerCount: m.fillerCount, fillers: m.fillers });
 
 export function emptyResult(m: Metrics): AnalysisResult {
   return {
