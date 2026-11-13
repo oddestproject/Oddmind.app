@@ -231,6 +231,8 @@ export default function PublicSpeakingApp() {
 
   const [evaluation, setEvaluation] = useState<any>(emptyEval);
   const [evalStatus, setEvalStatus] = useState<"idle" | "loading" | "error" | "empty">("idle");
+  const [micError, setMicError] = useState(""); // pesan mikrofon/browser yang ramah; kosong = tidak ada masalah
+  const [cardNotice, setCardNotice] = useState("");
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -240,6 +242,9 @@ export default function PublicSpeakingApp() {
   const isRecordingRef = useRef(false);
   const lastRunRef = useRef<{ text: string; durationSeconds: number } | null>(null);
   const resultsRef = useRef<HTMLElement>(null);
+  const baseTextRef = useRef(""); // teks sebelum sesi pengenalan di-restart (Chrome Android berhenti sendiri saat jeda)
+  const fatalMicRef = useRef(false);
+  const restartsRef = useRef(0);
 
   // Hasil baru: bawa pengguna ke panel hasil (di ponsel panel ada di bawah transkrip).
   useEffect(() => {
@@ -256,9 +261,10 @@ export default function PublicSpeakingApp() {
     });
 
     if (filtered.length === 0) {
-      alert("Tidak ada kartu yang cocok dengan kombinasi filter ini.");
+      setCardNotice("Tidak ada kartu yang cocok dengan kombinasi filter ini. Ubah filter level atau kategori.");
       return;
     }
+    setCardNotice("");
     const random = filtered[Math.floor(Math.random() * filtered.length)];
     setCurrentTopic(random);
 
@@ -310,6 +316,17 @@ export default function PublicSpeakingApp() {
 
   const startRecording = () => {
     if (isSparringMode && !debateReady) return; // mode debat butuh klaim AI yang siap
+    const w = window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any };
+    const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Recognition) {
+      // Tanpa pengenalan suara tidak ada yang bisa dinilai: jangan mulai timer, beri saran yang jujur.
+      setMicError("Browser ini belum mendukung pengenalan suara, jadi rekaman tidak bisa dimulai. Coba Chrome di Android atau komputer. Dukungan di Firefox dan iPhone/iPad belum terbukti.");
+      return;
+    }
+    setMicError("");
+    fatalMicRef.current = false;
+    restartsRef.current = 0;
+    baseTextRef.current = "";
     activeClaimRef.current = isSparringMode ? debate.claim : "";
     setIsRecording(true);
     isRecordingRef.current = true;
@@ -322,25 +339,47 @@ export default function PublicSpeakingApp() {
     setLiveFillers(0);
     setLiveWpm(0);
 
-    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "id-ID";
+    recognitionRef.current = new Recognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = "id-ID";
 
-      recognitionRef.current.onresult = (event: any) => {
-        let currentText = "";
-        for (let i = 0; i < event.results.length; i++) {
-          currentText += event.results[i][0].transcript;
-        }
-        transcriptRef.current = currentText;
-        setTranscript(currentText);
-        analyzeLiveMetrics(currentText);
+    recognitionRef.current.onresult = (event: any) => {
+      let currentText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        currentText += event.results[i][0].transcript;
+      }
+      currentText = baseTextRef.current + currentText;
+      transcriptRef.current = currentText;
+      setTranscript(currentText);
+      analyzeLiveMetrics(currentText);
+    };
+
+    recognitionRef.current.onerror = (event: any) => {
+      const code = event?.error as string;
+      if (code === "no-speech" || code === "aborted") return; // wajar saat jeda; onend yang memulai ulang
+      fatalMicRef.current = true;
+      const izin = "Izin mikrofon ditolak. Izinkan mikrofon untuk situs ini di pengaturan browser, lalu coba lagi.";
+      const msg: Record<string, string> = {
+        "not-allowed": izin,
+        "service-not-allowed": izin,
+        "audio-capture": "Mikrofon tidak ditemukan atau sedang dipakai aplikasi lain. Periksa perangkat lalu coba lagi.",
+        network: "Layanan pengenalan suara browser tidak terjangkau. Periksa koneksi internet lalu coba lagi.",
       };
+      setMicError(msg[code] ?? "Pengenalan suara berhenti karena kesalahan browser. Coba lagi, atau pakai Chrome.");
+      if (transcriptRef.current.trim()) stopRecording(); // sudah ada ucapan: tetap dinilai
+      else abortRecording();
+    };
 
-      try { recognitionRef.current.start(); } catch (e) {}
-    }
+    recognitionRef.current.onend = () => {
+      // Chrome Android mengakhiri sesi continuous saat jeda: lanjutkan selama masih merekam dan tidak ada galat fatal.
+      if (!isRecordingRef.current || fatalMicRef.current || restartsRef.current >= 30) return;
+      restartsRef.current += 1;
+      baseTextRef.current = transcriptRef.current ? `${transcriptRef.current} ` : "";
+      try { recognitionRef.current.start(); } catch { /* sesi sudah berjalan */ }
+    };
+
+    try { recognitionRef.current.start(); } catch { /* sesi sudah berjalan */ }
 
     const totalSeconds = isSparringMode ? 60 : 120;
     timerRef.current = setInterval(() => {
@@ -352,6 +391,16 @@ export default function PublicSpeakingApp() {
         return prev - 1;
       });
     }, 1000);
+  };
+
+  // Hentikan rekaman tanpa menilai (mikrofon gagal sebelum ada ucapan).
+  const abortRecording = () => {
+    if (!isRecordingRef.current) return;
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    try { recognitionRef.current?.stop(); } catch { /* sudah berhenti */ }
+    setTimeLeft(isSparringMode ? 60 : 120);
   };
 
   const analyzeLiveMetrics = (text: string) => {
@@ -567,7 +616,6 @@ export default function PublicSpeakingApp() {
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                aria-label={full}
                 aria-current={active ? "page" : undefined}
                 className={`-mt-px flex min-h-16 flex-col items-center justify-center gap-1 border-t-2 text-sm font-semibold transition-colors md:mt-0 md:min-h-12 md:flex-row md:gap-2 md:border-t-0 md:border-b-2 ${
                   active ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"
@@ -581,6 +629,11 @@ export default function PublicSpeakingApp() {
           })}
         </div>
       </nav>
+
+      {/* Satu pengumuman sopan untuk status rekaman dan hasil; metrik langsung dan transkrip sengaja tidak dibacakan */}
+      <p role="status" className="sr-only">
+        {isRecording ? "Sedang merekam" : !noResult ? `Penilaian selesai. Skor ${evaluation.overall} dari 100.` : ""}
+      </p>
 
       <main className={`mx-auto max-w-5xl px-4 pt-6 md:pb-12 ${activeTab === "latihan" ? "pb-44" : "pb-28"}`}>
         {/* TAB 1: LATIHAN */}
@@ -602,6 +655,8 @@ export default function PublicSpeakingApp() {
                   Mode Debat AI{isSparringMode ? ": aktif" : ""}
                 </button>
               </div>
+
+              {cardNotice && <p role="status" className="text-sm font-medium text-warn">{cardNotice}</p>}
 
               <details className="text-sm">
                 <summary className="min-h-11 py-2 font-semibold text-ink-2">Filter kartu dan topik pilihan</summary>
@@ -712,7 +767,10 @@ export default function PublicSpeakingApp() {
                   </button>
                 </div>
                 {isRecording && (
-                  <p role="status" className="tnum mt-2 text-sm text-ink-2">Filler {liveFillers} · Tempo {livePaceStatus} · {liveWpm} WPM</p>
+                  <p className="tnum mt-2 text-sm text-ink-2">Filler {liveFillers} · Tempo {livePaceStatus} · {liveWpm} WPM</p>
+                )}
+                {micError && !isRecording && (
+                  <p role="alert" className="mt-2 rounded-field bg-bad-soft px-3 py-2 text-sm font-medium text-bad">{micError}</p>
                 )}
                 {!isRecording && isSparringMode && !debateReady && (
                   <p className="mt-2 text-sm font-medium text-warn">Rekam aktif setelah lawan debat siap, atau kembali ke mode biasa.</p>
@@ -739,7 +797,7 @@ export default function PublicSpeakingApp() {
                 )}
                 {evalStatus === "empty" && (
                   <div role="status" className="rounded-field bg-warn-soft px-3 py-2 text-sm font-medium text-warn">
-                    Tidak ada ucapan terdeteksi, jadi belum ada yang bisa dinilai. Periksa izin mikrofon lalu coba rekam lagi.
+                    Tidak ada ucapan terdeteksi, jadi belum ada yang bisa dinilai. Periksa izin mikrofon lalu coba rekam lagi. Di Firefox atau iPhone/iPad pengenalan suara mungkin belum didukung; coba Chrome.
                   </div>
                 )}
                 {evalStatus === "error" && (
@@ -899,7 +957,7 @@ export default function PublicSpeakingApp() {
               <section className={panel} aria-labelledby="tren-judul">
                 <h2 id="tren-judul" className="font-display text-xl">Skor dari sesi ke sesi</h2>
                 <p className="text-sm text-ink-2">10 sesi dinilai terakhir</p>
-                <div className="mt-4 h-[280px] w-full">
+                <div className="mt-4 h-[280px] w-full" role="img" aria-label={trendData.length > 0 ? `Grafik skor dari sesi ke sesi: ${trendData.map((d) => `${d.name} ${d.Skor}`).join(", ")}` : "Grafik skor belum ada data"}>
                   {trendData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={trendData}>
@@ -921,7 +979,7 @@ export default function PublicSpeakingApp() {
               <section className={panel} aria-labelledby="radar-judul">
                 <h2 id="radar-judul" className="font-display text-xl">Peta kemampuan</h2>
                 <p className="text-sm text-ink-2">Rata-rata 10 dimensi dari sesi yang dinilai</p>
-                <div className="mt-4 flex h-[280px] w-full items-center justify-center">
+                <div className="mt-4 flex h-[280px] w-full items-center justify-center" role="img" aria-label={radarData.length > 0 ? `Peta kemampuan, rata-rata dari 100: ${radarData.map((d) => `${d.subject} Critical Thinking ${d.CT}, Public Speaking ${d.PS}`).join("; ")}` : "Peta kemampuan belum ada data"}>
                   {radarData.length === 0 ? (
                     <p className="px-6 text-center text-sm italic text-ink-2">Radar menampilkan rata-rata 10 dimensi dari sesi yang dinilai. Belum ada data.</p>
                   ) : (
